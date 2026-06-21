@@ -420,13 +420,37 @@ class SearchView(ft.Container):
                                   icon_color=AppTheme.TEXT_SECONDARY, tooltip="Open page",
                                   on_click=lambda _, u=mv["tmdb_url"]: self._open(u)),
                     ft.IconButton(ft.Icons.PLAY_CIRCLE_OUTLINE, icon_size=16,
-                                  icon_color=AppTheme.ACCENT, tooltip="Find trailer on YouTube",
-                                  on_click=lambda _, m=mv: self._open(
-                                      f"https://www.youtube.com/results?search_query="
-                                      f"{m['title']} {m['year']} trailer")),
+                                  icon_color=AppTheme.ACCENT, tooltip="Play trailer here",
+                                  on_click=lambda _, m=mv: self._play_movie_trailer(m)),
                 ], spacing=0, alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
             ], spacing=6),
             bgcolor=AppTheme.CARD, border_radius=12, padding=8)
+
+    def _play_movie_trailer(self, mv):
+        """Play the movie's trailer in-app (full films aren't streamable from
+        these metadata sources). Fetches the trailer URL, then opens the player."""
+        self._toast(f"Loading trailer: {mv['title'][:40]}…")
+        threading.Thread(target=self._trailer_worker, args=(mv,), daemon=True).start()
+
+    def _trailer_worker(self, mv):
+        url = ""
+        try:
+            imdb = mv.get("imdb_id")
+            if imdb:
+                d = _movie_svc.get_details(imdb)
+                url = d.get("trailer") or ""
+        except Exception:
+            url = ""
+        # Fallback: search YouTube for "<title> <year> trailer"
+        if not url:
+            url = (f"ytsearch1:{mv['title']} {mv.get('year','')} official trailer")
+        def _go():
+            self._play_media(url, f"{mv['title']} — Trailer")
+        try:
+            if self.page:
+                self.page.run_task(self._async_apply, _go)
+        except Exception:
+            pass
 
     def _movie_details(self, mv):
         # Poster
@@ -1673,6 +1697,9 @@ class SearchView(ft.Container):
             with YoutubeDL({"quiet": True, "no_warnings": True, "noplaylist": True,
                             "format": fmt}) as ydl:
                 info = ydl.extract_info(url, download=False)
+            # ytsearch / playlist URLs return entries — use the first match
+            if info.get("entries"):
+                info = next((e for e in info["entries"] if e), info)
             stream = info.get("url")
             if not stream and info.get("requested_formats"):
                 stream = info["requested_formats"][0].get("url")
