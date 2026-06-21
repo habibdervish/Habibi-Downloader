@@ -237,10 +237,18 @@ class DownloadManager:
         if not task.url:
             raise ValueError("No URL provided")
 
-        out_dir = get_thumbnails_dir() if is_image else get_downloads_dir()
+        # Image downloads go to <DownloadFolder>/Images (was a hidden cache dir).
+        if is_image:
+            out_dir = os.path.join(get_downloads_dir(), "Images")
+        else:
+            out_dir = get_downloads_dir()
+        os.makedirs(out_dir, exist_ok=True)
         ext = _guess_ext(task.url, default=".jpg" if is_image else ".mp3")
         safe = _safe_title(task.title) or "download"
-        filepath = os.path.join(out_dir, f"{safe}__{task.id}{ext}")
+        # Clean filename; only add a short id suffix if the name already exists.
+        filepath = os.path.join(out_dir, f"{safe}{ext}")
+        if os.path.exists(filepath):
+            filepath = os.path.join(out_dir, f"{safe}__{task.id[:6]}{ext}")
         task.file_path = filepath
 
         with requests.get(task.url, stream=True, timeout=60) as resp:
