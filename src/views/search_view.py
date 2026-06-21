@@ -522,7 +522,7 @@ class SearchView(ft.Container):
         )
         detect_btn = ft.FilledButton(
             "Detect", icon=ft.Icons.SEARCH,
-            style=ft.ButtonStyle(bgcolor=AppTheme.ACCENT, color=AppTheme.BG),
+            style=ft.ButtonStyle(bgcolor=AppTheme.ACCENT, color=AppTheme.ON_ACCENT),
             on_click=lambda _: self._resolve_url(self._direct_field.value or ""),
         )
         sites_btn = ft.TextButton(
@@ -1244,7 +1244,7 @@ class SearchView(ft.Container):
                                 ft.FilledButton(
                                     "Download", icon=ft.Icons.DOWNLOAD,
                                     style=ft.ButtonStyle(
-                                        bgcolor=AppTheme.ACCENT, color=AppTheme.BG),
+                                        bgcolor=AppTheme.ACCENT, color=AppTheme.ON_ACCENT),
                                     on_click=lambda _, i=img: (
                                         self._download_image(i), close(None)),
                                 ),

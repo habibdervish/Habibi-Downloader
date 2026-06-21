@@ -130,7 +130,7 @@ class SettingsDrawer(ft.Container):
             self._conc_row.controls.append(
                 ft.Container(
                     content=ft.Text(str(n), size=13,
-                                    color=AppTheme.BG if active else AppTheme.TEXT,
+                                    color=AppTheme.ON_ACCENT if active else AppTheme.TEXT,
                                     weight=ft.FontWeight.BOLD),
                     width=44, height=36, alignment=ft.Alignment(0, 0), border_radius=8,
                     bgcolor=AppTheme.ACCENT if active else AppTheme.CARD,
@@ -148,7 +148,7 @@ class SettingsDrawer(ft.Container):
         for c in self._conc_row.controls:
             active = c.content.value == str(n)
             c.bgcolor = AppTheme.ACCENT if active else AppTheme.CARD
-            c.content.color = AppTheme.BG if active else AppTheme.TEXT
+            c.content.color = AppTheme.ON_ACCENT if active else AppTheme.TEXT
         self._safe(self._conc_row)
 
     def _theme_selector(self):
@@ -159,7 +159,7 @@ class SettingsDrawer(ft.Container):
             self._theme_row.controls.append(
                 ft.Container(
                     content=ft.Text(mode.capitalize(), size=12,
-                                    color=AppTheme.BG if active else AppTheme.TEXT,
+                                    color=AppTheme.ON_ACCENT if active else AppTheme.TEXT,
                                     weight=ft.FontWeight.W_600),
                     height=34, expand=True, alignment=ft.Alignment(0, 0), border_radius=8,
                     bgcolor=AppTheme.ACCENT if active else AppTheme.CARD,
@@ -177,7 +177,7 @@ class SettingsDrawer(ft.Container):
         for c in self._theme_row.controls:
             active = c.content.value.lower() == mode
             c.bgcolor = AppTheme.ACCENT if active else AppTheme.CARD
-            c.content.color = AppTheme.BG if active else AppTheme.TEXT
+            c.content.color = AppTheme.ON_ACCENT if active else AppTheme.TEXT
         self._safe(self._theme_row)
         if self.page:
             self.page.theme_mode = {
@@ -389,7 +389,7 @@ class SettingsDrawer(ft.Container):
             self._suno_interval_row.controls.append(
                 ft.Container(
                     content=ft.Text(label, size=11,
-                                    color=AppTheme.BG if active else AppTheme.TEXT,
+                                    color=AppTheme.ON_ACCENT if active else AppTheme.TEXT,
                                     weight=ft.FontWeight.BOLD),
                     height=30, expand=True, alignment=ft.Alignment(0, 0), border_radius=6,
                     bgcolor=AppTheme.ACCENT if active else AppTheme.CARD,
@@ -564,7 +564,7 @@ class SettingsDrawer(ft.Container):
             active = c.content.value == {"5m": "5 min", "15m": "15 min",
                                          "30m": "30 min", "1h": "1 hr"}[val]
             c.bgcolor = AppTheme.ACCENT if active else AppTheme.CARD
-            c.content.color = AppTheme.BG if active else AppTheme.TEXT
+            c.content.color = AppTheme.ON_ACCENT if active else AppTheme.TEXT
         self._safe(self._suno_interval_row)
 
     # -------------------------------------------------------------- show/hide

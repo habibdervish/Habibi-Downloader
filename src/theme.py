@@ -2,15 +2,18 @@ import flet as ft
 
 
 class AppTheme:
-    BG = "#0B0B0B"
-    PANEL = "#141414"
-    CARD = "#1A1A1A"
-    ACCENT = "#39FF6B"
-    TEXT = "#FFFFFF"
-    TEXT_SECONDARY = "#B0B0B0"
-    DANGER = "#FF4D4D"
-    BORDER = "#2A2A2A"
-    HOVER = "#222222"
+    # Clean, Apple-like dark palette with system-blue accent
+    BG = "#0E0E12"
+    PANEL = "#17171F"
+    CARD = "#1E1E27"
+    ACCENT = "#0A84FF"
+    ACCENT_HOVER = "#3D9BFF"
+    ON_ACCENT = "#FFFFFF"   # text/icon color on top of the accent
+    TEXT = "#F5F5F7"
+    TEXT_SECONDARY = "#9A9AA5"
+    DANGER = "#FF453A"
+    BORDER = "#2A2A33"
+    HOVER = "#24242E"
 
     sidebar_width = 220
     card_radius = 16
@@ -45,7 +48,7 @@ class AppTheme:
             on_click=on_click,
             width=width,
             style=ft.ButtonStyle(
-                color=AppTheme.BG,
+                color=AppTheme.ON_ACCENT,
                 bgcolor=AppTheme.ACCENT,
                 shape=ft.RoundedRectangleBorder(radius=AppTheme.button_radius),
                 padding=ft.Padding(16, 24, 16, 24),

@@ -72,7 +72,7 @@ class ScannerView(ft.Container):
         # ── scan control buttons + progress
         self._scan_btn = ft.ElevatedButton(
             "Start Scan", icon=ft.Icons.PLAY_ARROW_ROUNDED,
-            bgcolor=AppTheme.ACCENT, color=AppTheme.BG,
+            bgcolor=AppTheme.ACCENT, color=AppTheme.ON_ACCENT,
             on_click=lambda _: self._start_scan())
         self._pause_btn = ft.ElevatedButton(
             "Pause", icon=ft.Icons.PAUSE, on_click=lambda _: self._pause_scan(),
@@ -315,10 +315,10 @@ class ScannerView(ft.Container):
             chip.bgcolor = AppTheme.ACCENT if on else AppTheme.CARD
             for c in chip.content.controls:
                 if isinstance(c, ft.Icon):
-                    c.color = AppTheme.BG if on else AppTheme.TEXT_SECONDARY
+                    c.color = AppTheme.ON_ACCENT if on else AppTheme.TEXT_SECONDARY
                 if isinstance(c, ft.Column):
                     for t in c.controls:
-                        t.color = AppTheme.BG if on else (
+                        t.color = AppTheme.ON_ACCENT if on else (
                             AppTheme.TEXT if t.size == 12 else AppTheme.TEXT_SECONDARY)
             self._safe(chip)
 
@@ -862,7 +862,7 @@ class ScannerView(ft.Container):
             content=ft.Container(content=field, width=420),
             actions=[
                 ft.TextButton("Cancel", on_click=lambda _: self.page.close(dlg)),
-                ft.ElevatedButton("OK", bgcolor=AppTheme.ACCENT, color=AppTheme.BG, on_click=submit),
+                ft.ElevatedButton("OK", bgcolor=AppTheme.ACCENT, color=AppTheme.ON_ACCENT, on_click=submit),
             ],
         )
         self.page.open(dlg)

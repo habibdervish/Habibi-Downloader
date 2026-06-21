@@ -368,7 +368,7 @@ class LibraryView(ft.Container):
                 right=ft.BorderSide(1, AppTheme.BORDER), bottom=ft.BorderSide(1, AppTheme.BORDER))
             txt = self._chip_texts.get(key)
             if txt:
-                txt.color  = AppTheme.BG if active else AppTheme.TEXT_SECONDARY
+                txt.color  = AppTheme.ON_ACCENT if active else AppTheme.TEXT_SECONDARY
                 txt.weight = ft.FontWeight.W_600 if active else ft.FontWeight.NORMAL
 
     # ─────────────────────────────────── view toggle
@@ -1171,9 +1171,9 @@ class LibraryView(ft.Container):
             # ── not connected: show auto-detect + settings shortcut ────────
             detect_btn = ft.Container(
                 content=ft.Row(
-                    [ft.Icon(ft.Icons.MANAGE_SEARCH, size=18, color=AppTheme.BG),
+                    [ft.Icon(ft.Icons.MANAGE_SEARCH, size=18, color=AppTheme.ON_ACCENT),
                      ft.Text("Auto-detect Cookie", size=14,
-                             weight=ft.FontWeight.BOLD, color=AppTheme.BG)],
+                             weight=ft.FontWeight.BOLD, color=AppTheme.ON_ACCENT)],
                     spacing=8, tight=True,
                 ),
                 bgcolor=AppTheme.ACCENT,

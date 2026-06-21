@@ -37,7 +37,7 @@ class QueuePanel(ft.Container):
             shadow=ft.BoxShadow(blur_radius=24, color=ft.Colors.BLACK54),
         )
         self._list = ft.Column(spacing=10, scroll=ft.ScrollMode.AUTO, expand=True)
-        self._badge = ft.Text("0", size=11, color=AppTheme.BG, weight=ft.FontWeight.BOLD)
+        self._badge = ft.Text("0", size=11, color=AppTheme.ON_ACCENT, weight=ft.FontWeight.BOLD)
         self.content = self._build()
         self._render_list()
 
