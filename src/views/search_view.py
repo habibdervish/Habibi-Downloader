@@ -1318,6 +1318,10 @@ class SearchView(ft.Container):
         author = info.get("author") or ""
         error = info.get("error")
 
+        if kind == "playlist":
+            self._show_playlist_result(info)
+            return
+
         if error and kind == "unknown":
             self._direct_status.content = ft.Column(
                 [
@@ -1418,6 +1422,66 @@ class SearchView(ft.Container):
         )
         self._direct_result.visible = True
         self._safe_update(self._direct_result)
+
+    # --------------------------------------------------- playlist result
+    def _show_playlist_result(self, info: dict):
+        entries = info.get("entries", [])
+        title = info.get("title") or "Playlist"
+        count = info.get("count", len(entries))
+
+        header = ft.Row([
+            ft.Icon(ft.Icons.PLAYLIST_PLAY, size=22, color=AppTheme.ACCENT),
+            ft.Column([
+                ft.Text(title, size=15, weight=ft.FontWeight.W_600, color=AppTheme.TEXT,
+                        max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
+                ft.Text(f"{count} items", size=12, color=AppTheme.TEXT_SECONDARY),
+            ], spacing=0, expand=True),
+            ft.ElevatedButton(
+                f"Download all ({count})", icon=ft.Icons.DOWNLOAD_ROUNDED,
+                bgcolor=AppTheme.ACCENT, color=AppTheme.ON_ACCENT,
+                on_click=lambda _, es=entries: self._download_playlist(es)),
+        ], spacing=12, vertical_alignment=ft.CrossAxisAlignment.CENTER)
+
+        rows = []
+        for i, e in enumerate(entries, 1):
+            rows.append(ft.Container(
+                content=ft.Row([
+                    ft.Text(f"{i}", size=11, color=AppTheme.TEXT_SECONDARY, width=28),
+                    ft.Icon(ft.Icons.MUSIC_NOTE, size=15, color=AppTheme.TEXT_SECONDARY),
+                    ft.Text(e["title"], size=12, color=AppTheme.TEXT, expand=True,
+                            max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
+                    ft.Text(_fmt_dur(e.get("duration", 0)), size=10,
+                            color=AppTheme.TEXT_SECONDARY) if e.get("duration") else ft.Container(),
+                    ft.IconButton(ft.Icons.DOWNLOAD, icon_size=16, icon_color=AppTheme.ACCENT,
+                                  tooltip="Download this",
+                                  on_click=lambda _, it=e: self._download_one_entry(it)),
+                ], spacing=8, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                padding=ft.Padding(8, 4, 8, 4),
+                border=ft.Border(bottom=ft.BorderSide(0.5, AppTheme.BORDER))))
+
+        self._direct_result.content = ft.Container(
+            content=ft.Column([
+                header,
+                ft.Divider(height=10, color=AppTheme.BORDER),
+                ft.Column(rows, spacing=0, scroll=ft.ScrollMode.AUTO, expand=True),
+            ], spacing=8, expand=True),
+            bgcolor=AppTheme.CARD, border_radius=AppTheme.card_radius,
+            padding=ft.Padding(16, 16, 16, 12), expand=True)
+        self._direct_result.visible = True
+        self._safe_update(self._direct_result)
+
+    def _download_one_entry(self, e):
+        task = DownloadTask(id=generate_id(), url=e["url"], title=e.get("title", "audio"),
+                            kind="youtube", skip_library=True)
+        download_manager.enqueue(task)
+        self._toast(f"Downloading: {e.get('title', '')[:40]}")
+
+    def _download_playlist(self, entries):
+        for e in entries:
+            download_manager.enqueue(DownloadTask(
+                id=generate_id(), url=e["url"], title=e.get("title", "audio"),
+                kind="youtube", skip_library=True))
+        self._toast(f"Queued {len(entries)} items — saved to Downloads folder")
 
     # ======================================================= ACTIONS
     def _download_music(self, song):
