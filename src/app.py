@@ -44,7 +44,8 @@ class HabibiDownloaderApp:
         self.page.window.prevent_close = False
         self.page.window.on_event = self._on_window_event
         try:
-            self.page.window.icon = "icons/habibi downlaoder.png"
+            # Windows taskbar/title-bar icon — multi-size .ico renders crisp
+            self.page.window.icon = "icons/habibi.ico"
         except Exception:
             pass
 
