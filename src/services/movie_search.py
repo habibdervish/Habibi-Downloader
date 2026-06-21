@@ -70,12 +70,21 @@ def get_details(imdb_id: str) -> dict:
         if r.status_code != 200:
             return {}
         m = r.json().get("meta", {})
+        trailers = m.get("trailers") or []
+        trailer_id = trailers[0].get("source") if trailers else ""
         return {
             "overview": m.get("description") or "",
             "rating": m.get("imdbRating") or "",
-            "genres": ", ".join(m.get("genres", []) or []),
-            "cast": ", ".join((m.get("cast") or [])[:5]),
+            "genres": ", ".join(m.get("genres", []) or m.get("genre", []) or []),
+            "cast": ", ".join((m.get("cast") or [])[:6]),
+            "director": ", ".join(m.get("director", []) or []),
+            "writer": ", ".join((m.get("writer") or [])[:3]),
+            "country": m.get("country") or "",
             "runtime": m.get("runtime") or "",
+            "released": (m.get("released") or "")[:10],
+            "year": str(m.get("year") or m.get("releaseInfo") or ""),
+            "awards": m.get("awards") or "",
+            "trailer": (f"https://www.youtube.com/watch?v={trailer_id}" if trailer_id else ""),
         }
     except Exception:
         return {}

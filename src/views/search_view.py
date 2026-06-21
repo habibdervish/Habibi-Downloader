@@ -429,42 +429,86 @@ class SearchView(ft.Container):
             bgcolor=AppTheme.CARD, border_radius=12, padding=8)
 
     def _movie_details(self, mv):
-        meta_line = ft.Text("", size=12, color=AppTheme.TEXT_SECONDARY)
-        overview = ft.Text(mv["overview"] or "Loading details…",
-                           size=13, color=AppTheme.TEXT, selectable=True)
+        # Poster
+        poster = (ft.Image(src=mv["poster"], width=180, height=270, fit=ft.BoxFit.COVER,
+                           border_radius=10)
+                  if mv.get("poster") else
+                  ft.Container(width=180, height=270, bgcolor=AppTheme.CARD, border_radius=10,
+                               alignment=ft.Alignment(0, 0),
+                               content=ft.Icon(ft.Icons.MOVIE, size=48, color=AppTheme.TEXT_SECONDARY)))
+
+        # Right-hand info column (filled in as details load)
+        self._md_meta = ft.Text("Loading…", size=12, color=AppTheme.TEXT_SECONDARY)
+        self._md_genres = ft.Row([], spacing=6, wrap=True)
+        self._md_overview = ft.Text(mv.get("overview") or "Loading plot…",
+                                    size=13, color=AppTheme.TEXT, selectable=True)
+        self._md_director = ft.Text("", size=12, color=AppTheme.TEXT_SECONDARY, selectable=True)
+        self._md_cast = ft.Text("", size=12, color=AppTheme.TEXT_SECONDARY, selectable=True)
+        self._md_extra = ft.Text("", size=11, color=AppTheme.TEXT_SECONDARY, selectable=True)
+        self._md_trailer_btn = ft.ElevatedButton(
+            "▶ Trailer", bgcolor=AppTheme.ACCENT, color=AppTheme.ON_ACCENT, visible=False)
+
+        info = ft.Column([
+            ft.Text(f"{mv['title']}" + (f"  ({mv['year']})" if mv.get('year') else ""),
+                    size=20, weight=ft.FontWeight.BOLD, color=AppTheme.TEXT),
+            self._md_meta,
+            self._md_genres,
+            ft.Divider(height=8, color=AppTheme.BORDER),
+            self._md_overview,
+            ft.Container(height=4),
+            self._md_director,
+            self._md_cast,
+            self._md_extra,
+            ft.Container(height=6),
+            self._md_trailer_btn,
+        ], spacing=7, scroll=ft.ScrollMode.AUTO, expand=True)
+
         dlg = ft.AlertDialog(
             modal=True, bgcolor=AppTheme.PANEL,
-            title=ft.Text(f"{mv['title']}" + (f" ({mv['year']})" if mv['year'] else ""),
-                          color=AppTheme.TEXT, size=17),
-            content=ft.Container(width=460, content=ft.Column(
-                [meta_line, overview], tight=True, spacing=12, scroll=ft.ScrollMode.AUTO)),
+            content=ft.Container(
+                width=620, height=440,
+                content=ft.Row([poster, ft.Container(content=info, expand=True,
+                                                      padding=ft.Padding(18, 0, 0, 0))],
+                               vertical_alignment=ft.CrossAxisAlignment.START)),
             actions=[
                 ft.TextButton("Open on IMDb", on_click=lambda _: self._open(mv["tmdb_url"])),
                 ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog()),
             ])
         self.page.show_dialog(dlg)
-        # Fetch full plot/rating/genres on demand (keyless Cinemeta list is sparse)
         imdb = mv.get("imdb_id")
         if imdb:
-            threading.Thread(target=self._fetch_details,
-                             args=(imdb, meta_line, overview), daemon=True).start()
+            threading.Thread(target=self._fetch_details, args=(imdb, mv), daemon=True).start()
 
-    def _fetch_details(self, imdb, meta_line, overview):
+    def _fetch_details(self, imdb, mv):
         d = _movie_svc.get_details(imdb)
         def _apply():
             bits = []
             if d.get("rating"):
-                bits.append(f"⭐ {d['rating']}")
+                bits.append(f"⭐ {d['rating']}/10")
             if d.get("runtime"):
                 bits.append(d["runtime"])
-            if d.get("genres"):
-                bits.append(d["genres"])
-            meta_line.value = "   ·   ".join(bits)
-            if d.get("overview"):
-                overview.value = d["overview"]
-            elif not overview.value or overview.value == "Loading details…":
-                overview.value = "No description available."
-            for c in (meta_line, overview):
+            if d.get("released"):
+                bits.append(d["released"])
+            if d.get("country"):
+                bits.append(d["country"])
+            self._md_meta.value = "   ·   ".join(bits) or "—"
+            # genre chips
+            self._md_genres.controls.clear()
+            for g in (d.get("genres") or "").split(", "):
+                if g:
+                    self._md_genres.controls.append(ft.Container(
+                        content=ft.Text(g, size=10, color=AppTheme.TEXT),
+                        bgcolor=AppTheme.CARD, border_radius=6,
+                        padding=ft.Padding(8, 3, 8, 3)))
+            self._md_overview.value = d.get("overview") or mv.get("overview") or "No description available."
+            self._md_director.value = (f"Director:  {d['director']}" if d.get("director") else "")
+            self._md_cast.value = (f"Cast:  {d['cast']}" if d.get("cast") else "")
+            self._md_extra.value = (f"Awards:  {d['awards']}" if d.get("awards") else "")
+            if d.get("trailer"):
+                self._md_trailer_btn.visible = True
+                self._md_trailer_btn.on_click = lambda _, u=d["trailer"]: self._play_media(u, mv["title"])
+            for c in (self._md_meta, self._md_genres, self._md_overview,
+                      self._md_director, self._md_cast, self._md_extra, self._md_trailer_btn):
                 try:
                     c.update()
                 except Exception:
