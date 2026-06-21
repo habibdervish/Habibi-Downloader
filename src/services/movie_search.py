@@ -219,6 +219,65 @@ def ai_refine(description: str) -> Optional[str]:
     return None
 
 
+def search_free_movies(query: str, max_results: int = 40) -> List[dict]:
+    """Find FULL movies that are legal & playable in-app: Archive.org's free
+    library (public-domain/classic films) + YouTube full free movies.
+    Returns playable items: {title, year, thumb, url, source, duration}."""
+    results = []
+    q = (query or "").strip()
+    if not q:
+        return []
+
+    # 1) Archive.org — thousands of full, legal, free movies
+    try:
+        r = requests.get("https://archive.org/advancedsearch.php", params={
+            "q": f"({q}) AND mediatype:movies",
+            "fl[]": ["identifier", "title", "year"],
+            "sort[]": "downloads desc",
+            "rows": 25, "output": "json", "page": 1,
+        }, headers={"User-Agent": "HabibiDownloaderX/1.0"}, timeout=_TIMEOUT)
+        for doc in r.json().get("response", {}).get("docs", []):
+            ident = doc.get("identifier", "")
+            if not ident:
+                continue
+            title = doc.get("title", ident)
+            if isinstance(title, list):
+                title = title[0] if title else ident
+            results.append({
+                "title": str(title), "year": str(doc.get("year", "") or ""),
+                "thumb": f"https://archive.org/services/img/{ident}",
+                "url": f"https://archive.org/details/{ident}",
+                "source": "Archive.org", "duration": 0,
+            })
+    except Exception:
+        pass
+
+    # 2) YouTube — full free movies (filter out short clips)
+    try:
+        from yt_dlp import YoutubeDL
+        with YoutubeDL({"quiet": True, "no_warnings": True, "extract_flat": True}) as ydl:
+            info = ydl.extract_info(f"ytsearch15:{q} full movie", download=False)
+        for e in info.get("entries", []) or []:
+            if not e:
+                continue
+            dur = e.get("duration") or 0
+            if dur and dur < 2400:    # < 40 min -> probably a clip, not a full film
+                continue
+            thumbs = e.get("thumbnails") or []
+            vid = e.get("id", "")
+            results.append({
+                "title": e.get("title", "") or vid,
+                "year": "",
+                "thumb": thumbs[-1].get("url", "") if thumbs else "",
+                "url": e.get("url") or (f"https://www.youtube.com/watch?v={vid}" if vid else ""),
+                "source": "YouTube", "duration": dur,
+            })
+    except Exception:
+        pass
+
+    return results[:max_results]
+
+
 def smart_search(description: str, max_results: int = 30) -> Dict:
     """Full pipeline: optionally AI-refine the description, then TMDb search.
     Returns {"query_used", "ai_used", "results"}."""

@@ -345,6 +345,12 @@ class SearchView(ft.Container):
                              bottom=ft.BorderSide(1, AppTheme.BORDER)),
             border_radius=AppTheme.button_radius, padding=ft.Padding(14, 8, 8, 8))
 
+        # Mode toggle: Info (metadata) vs Watch Free (full legal movies in-app)
+        self._movies_mode = "info"
+        self._mode_info_chip = self._movie_mode_chip("ℹ  Info & trailers", "info", True)
+        self._mode_free_chip = self._movie_mode_chip("▶  Watch Free (full movies)", "free", False)
+        mode_row = ft.Row([self._mode_info_chip, self._mode_free_chip], spacing=8)
+
         self._movies_grid = ft.GridView(
             runs_count=0, max_extent=180, spacing=14, run_spacing=14,
             child_aspect_ratio=0.52, expand=True, padding=ft.Padding(0, 4, 0, 4))
@@ -352,28 +358,134 @@ class SearchView(ft.Container):
             ft.Icons.MOVIE_OUTLINED,
             "Describe a movie scene, theme, or place to find matching films\n"
             "(works out of the box — add a TMDb key in Settings for richer results)")
-        return ft.Column([bar, ft.Stack([self._movies_status, self._movies_grid], expand=True)],
+        return ft.Column([mode_row, bar, ft.Stack([self._movies_status, self._movies_grid], expand=True)],
                          spacing=12, expand=True)
+
+    def _movie_mode_chip(self, label, mode, active):
+        return ft.Container(
+            content=ft.Text(label, size=12,
+                            color=AppTheme.ON_ACCENT if active else AppTheme.TEXT_SECONDARY,
+                            weight=ft.FontWeight.W_600 if active else ft.FontWeight.NORMAL),
+            padding=ft.Padding(14, 8, 14, 8), border_radius=AppTheme.button_radius,
+            bgcolor=AppTheme.ACCENT if active else AppTheme.CARD,
+            border=ft.Border(left=ft.BorderSide(1, AppTheme.ACCENT if active else AppTheme.BORDER),
+                             top=ft.BorderSide(1, AppTheme.ACCENT if active else AppTheme.BORDER),
+                             right=ft.BorderSide(1, AppTheme.ACCENT if active else AppTheme.BORDER),
+                             bottom=ft.BorderSide(1, AppTheme.ACCENT if active else AppTheme.BORDER)),
+            on_click=lambda _, m=mode: self._set_movie_mode(m), ink=True, data=mode)
+
+    def _set_movie_mode(self, mode):
+        self._movies_mode = mode
+        for chip, m in ((self._mode_info_chip, "info"), (self._mode_free_chip, "free")):
+            on = m == mode
+            chip.bgcolor = AppTheme.ACCENT if on else AppTheme.CARD
+            chip.content.color = AppTheme.ON_ACCENT if on else AppTheme.TEXT_SECONDARY
+            chip.content.weight = ft.FontWeight.W_600 if on else ft.FontWeight.NORMAL
+            for side in ("left", "top", "right", "bottom"):
+                pass
+            chip.border = ft.Border(
+                left=ft.BorderSide(1, AppTheme.ACCENT if on else AppTheme.BORDER),
+                top=ft.BorderSide(1, AppTheme.ACCENT if on else AppTheme.BORDER),
+                right=ft.BorderSide(1, AppTheme.ACCENT if on else AppTheme.BORDER),
+                bottom=ft.BorderSide(1, AppTheme.ACCENT if on else AppTheme.BORDER))
+            self._safe_update(chip)
+        hint = ("Type a title/genre — e.g. \"western\", \"sci-fi\" — to watch FULL free "
+                "movies in-app (Archive.org + YouTube)" if mode == "free" else
+                "Describe a movie scene, theme, or place to find matching films")
+        self._set_status_msg(self._movies_status, ft.Icons.MOVIE_OUTLINED, hint)
+        self._movies_status.visible = True
+        self._movies_grid.controls.clear()
+        self._safe_update(self._movies_grid)
+        self._safe_update(self._movies_status)
+        q = (self._movies_field.value or "").strip()
+        if q:
+            self._search_movies(q)
 
     def _search_movies(self, query: str):
         query = (query or "").strip()
         if not query:
             return
         self._movies_cancel.visible = True
-        self._set_status_msg(self._movies_status, ft.Icons.HOURGLASS_EMPTY, "Searching movies…")
+        self._set_status_msg(self._movies_status, ft.Icons.HOURGLASS_EMPTY,
+                             "Finding full free movies…" if self._movies_mode == "free"
+                             else "Searching movies…")
+        self._movies_status.visible = True
         self._movies_grid.controls.clear()
         self._safe_update(self._movies_grid)
         self._safe_update(self._movies_cancel)
         self._safe_update(self._movies_status)
-        threading.Thread(target=self._movies_worker, args=(query,), daemon=True).start()
+        mode = self._movies_mode
+        threading.Thread(target=self._movies_worker, args=(query, mode), daemon=True).start()
 
-    def _movies_worker(self, query):
+    def _movies_worker(self, query, mode="info"):
+        if mode == "free":
+            try:
+                results = _movie_svc.search_free_movies(query, max_results=40)
+            except Exception:
+                results = []
+            if self.page:
+                self.page.run_task(self._render_free_movies, results)
+            return
         try:
             data = _movie_svc.smart_search(query, max_results=30)
         except Exception:
             data = {"results": [], "ai_used": False}
         if self.page:
             self.page.run_task(self._render_movies, data)
+
+    async def _render_free_movies(self, results):
+        self._movies_cancel.visible = bool(results)
+        self._movies_grid.controls.clear()
+        for mv in results:
+            self._movies_grid.controls.append(self._free_movie_card(mv))
+        if results:
+            self._movies_status.visible = False
+        else:
+            self._set_status_msg(self._movies_status, ft.Icons.SEARCH_OFF,
+                                 "No free full movies found — try another title or genre")
+            self._movies_status.visible = True
+        self._safe_update(self._movies_grid)
+        self._safe_update(self._movies_status)
+        self._safe_update(self._movies_cancel)
+
+    def _free_movie_card(self, mv):
+        thumb = mv.get("thumb") or ""
+        poster = (ft.Image(src=thumb, fit=ft.BoxFit.COVER, expand=True,
+                           error_content=ft.Container(bgcolor=AppTheme.PANEL,
+                               alignment=ft.Alignment(0, 0),
+                               content=ft.Icon(ft.Icons.MOVIE, size=40, color=AppTheme.TEXT_SECONDARY)))
+                  if thumb else
+                  ft.Container(bgcolor=AppTheme.PANEL, alignment=ft.Alignment(0, 0),
+                               content=ft.Icon(ft.Icons.MOVIE, size=40, color=AppTheme.TEXT_SECONDARY)))
+        src_badge = ft.Container(
+            content=ft.Text(mv.get("source", ""), size=9, color=ft.Colors.WHITE),
+            bgcolor="#000000AA", border_radius=5, padding=ft.Padding(5, 2, 5, 2), left=6, top=6)
+        dur = mv.get("duration") or 0
+        dur_badge = (ft.Container(content=ft.Text(_fmt_dur(dur), size=9, color=ft.Colors.WHITE),
+                                  bgcolor="#000000AA", border_radius=5,
+                                  padding=ft.Padding(5, 2, 5, 2), right=6, bottom=6)
+                     if dur else ft.Container())
+        title = mv.get("title", "")
+        if mv.get("year"):
+            title += f"  ({mv['year']})"
+        return ft.Container(
+            content=ft.Column([
+                ft.Container(content=ft.Stack([poster, src_badge, dur_badge]), expand=True,
+                             border_radius=10, clip_behavior=ft.ClipBehavior.ANTI_ALIAS),
+                ft.Text(title, size=12, weight=ft.FontWeight.W_600, color=AppTheme.TEXT,
+                        max_lines=2, overflow=ft.TextOverflow.ELLIPSIS),
+                ft.Row([
+                    ft.ElevatedButton("Play", icon=ft.Icons.PLAY_ARROW_ROUNDED,
+                                      bgcolor=AppTheme.ACCENT, color=AppTheme.ON_ACCENT, height=30,
+                                      style=ft.ButtonStyle(padding=ft.Padding(8, 0, 8, 0)),
+                                      on_click=lambda _, m=mv: self._play_media(m["url"], m["title"])),
+                    ft.IconButton(ft.Icons.DOWNLOAD, icon_size=16, icon_color=AppTheme.TEXT_SECONDARY,
+                                  tooltip="Download",
+                                  on_click=lambda _, m=mv: self._download_direct(
+                                      m["url"], m["title"], "video")),
+                ], spacing=4, alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+            ], spacing=6),
+            bgcolor=AppTheme.CARD, border_radius=12, padding=8)
 
     async def _render_movies(self, data):
         results = data.get("results", [])
