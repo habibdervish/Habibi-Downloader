@@ -1802,10 +1802,26 @@ class SearchView(ft.Container):
 
     def _resolve_and_play(self, url, audio_only, holder, thumb=""):
         stream = None
+        # Direct media files (and Archive.org movies) play without yt-dlp —
+        # a single progressive file is what libmpv plays reliably.
+        try:
+            low = url.lower()
+            if low.split("?")[0].endswith((".mp4", ".webm", ".mkv", ".m4v", ".ogv",
+                                           ".mov", ".avi", ".mp3", ".m4a", ".ogg")):
+                stream = url
+            elif "archive.org/details/" in low:
+                stream = self._archive_direct_url(url)
+        except Exception:
+            stream = None
+        if stream:
+            self._mount_player(stream, holder)
+            return
         try:
             from yt_dlp import YoutubeDL
+            # Prefer a single progressive (audio+video) stream — what plays in
+            # libmpv. Full movies often lack high-res progressive, so fall back.
             fmt = ("bestaudio/best" if audio_only
-                   else "best[ext=mp4][acodec!=none][vcodec!=none]/best[acodec!=none][vcodec!=none]/best")
+                   else "best[ext=mp4][acodec!=none][vcodec!=none]/18/22/best[acodec!=none][vcodec!=none]/best")
             with YoutubeDL({"quiet": True, "no_warnings": True, "noplaylist": True,
                             "format": fmt}) as ydl:
                 info = ydl.extract_info(url, download=False)
@@ -1818,11 +1834,33 @@ class SearchView(ft.Container):
         except Exception:
             stream = None
 
+        self._mount_player(stream, holder, audio_only, thumb)
+
+    def _archive_direct_url(self, url):
+        """Resolve an archive.org details page to its direct playable video file."""
+        import requests
+        from urllib.parse import quote
+        ident = url.split("/details/")[-1].strip("/").split("/")[0].split("?")[0]
+        try:
+            meta = requests.get(f"https://archive.org/metadata/{ident}",
+                                headers={"User-Agent": "HabibiDownloaderX/1.0"},
+                                timeout=12).json()
+            files = meta.get("files", [])
+            for exts in ((".mp4",), (".m4v", ".webm", ".ogv", ".mov", ".mkv")):
+                for f in files:
+                    name = f.get("name", "")
+                    if name.lower().endswith(exts):
+                        return f"https://archive.org/download/{ident}/{quote(name)}"
+        except Exception:
+            pass
+        return None
+
+    def _mount_player(self, stream, holder, audio_only=False, thumb=""):
         def _apply():
             if not stream:
                 holder.content = ft.Column(
                     [ft.Icon(ft.Icons.ERROR_OUTLINE, size=40, color=AppTheme.TEXT_SECONDARY),
-                     ft.Text("Couldn't load this stream — try Open in browser",
+                     ft.Text("Couldn't load this — try Open in browser",
                              size=12, color=AppTheme.TEXT_SECONDARY)],
                     spacing=10, horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                     alignment=ft.MainAxisAlignment.CENTER)
@@ -1833,8 +1871,6 @@ class SearchView(ft.Container):
                         playlist=[_fv.VideoMedia(resource=stream)],
                         muted=False, volume=100)
                     if audio_only and thumb:
-                        # Audio has no picture — show the cover art over the frame,
-                        # leaving the bottom control strip visible.
                         holder.content = ft.Stack([
                             video,
                             ft.Container(
@@ -1856,7 +1892,6 @@ class SearchView(ft.Container):
                 holder.update()
             except Exception:
                 pass
-
         try:
             if self.page:
                 self.page.run_task(self._async_apply, _apply)
