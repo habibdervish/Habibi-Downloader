@@ -958,7 +958,8 @@ class SearchView(ft.Container):
                     ft.Icons.PLAY_CIRCLE_FILL, icon_size=22, icon_color=AppTheme.ACCENT,
                     tooltip="Play here", width=34,
                     on_click=lambda _, s=song: self._play_media(
-                        s.source_url or s.audio_url or "", s.title, audio_only=True),
+                        s.source_url or s.audio_url or "", s.title,
+                        audio_only=True, thumb=s.thumbnail_path or ""),
                 ),
                 ft.ElevatedButton(
                     "Download", icon=ft.Icons.DOWNLOAD_ROUNDED,
@@ -1505,7 +1506,9 @@ class SearchView(ft.Container):
                     status,
                     ft.IconButton(ft.Icons.PLAY_CIRCLE_OUTLINE, icon_size=18,
                                   icon_color=AppTheme.ACCENT, tooltip="Play",
-                                  on_click=lambda _, it=e: self._play_media(it["url"], it.get("title", ""))),
+                                  on_click=lambda _, it=e: self._play_media(
+                                      it["url"], it.get("title", ""),
+                                      audio_only=True, thumb=it.get("thumbnail", ""))),
                     ft.IconButton(ft.Icons.DOWNLOAD, icon_size=16, icon_color=AppTheme.ACCENT,
                                   tooltip="Download this",
                                   on_click=lambda _, idx=i: self._download_entries([idx])),
@@ -1593,7 +1596,7 @@ class SearchView(ft.Container):
             self._set_status(status, "Cancelled", AppTheme.TEXT_SECONDARY)
 
     # ===================================================== IN-APP PLAYER
-    def _play_media(self, url: str, title: str, audio_only: bool = False):
+    def _play_media(self, url: str, title: str, audio_only: bool = False, thumb: str = ""):
         """Stream a video/audio URL inside the app via flet-video (libmpv).
         Resolves the direct stream with yt-dlp first, then plays in a dialog.
         Falls back to opening externally if the video engine isn't available."""
@@ -1620,9 +1623,9 @@ class SearchView(ft.Container):
             ])
         self.page.show_dialog(dlg)
         threading.Thread(target=self._resolve_and_play,
-                         args=(url, audio_only, holder), daemon=True).start()
+                         args=(url, audio_only, holder, thumb), daemon=True).start()
 
-    def _resolve_and_play(self, url, audio_only, holder):
+    def _resolve_and_play(self, url, audio_only, holder, thumb=""):
         stream = None
         try:
             from yt_dlp import YoutubeDL
@@ -1647,10 +1650,23 @@ class SearchView(ft.Container):
                     alignment=ft.MainAxisAlignment.CENTER)
             else:
                 try:
-                    holder.content = _fv.Video(
+                    video = _fv.Video(
                         expand=True, autoplay=True, show_controls=True,
                         playlist=[_fv.VideoMedia(resource=stream)],
                         muted=False, volume=100)
+                    if audio_only and thumb:
+                        # Audio has no picture — show the cover art over the frame,
+                        # leaving the bottom control strip visible.
+                        holder.content = ft.Stack([
+                            video,
+                            ft.Container(
+                                bottom=64, left=0, right=0, top=0,
+                                bgcolor="#000000", alignment=ft.Alignment(0, 0),
+                                content=ft.Image(src=thumb, fit=ft.BoxFit.CONTAIN,
+                                                 expand=True)),
+                        ])
+                    else:
+                        holder.content = video
                 except Exception:
                     holder.content = ft.Column(
                         [ft.Icon(ft.Icons.MOVIE_OUTLINED, size=40, color=AppTheme.TEXT_SECONDARY),
