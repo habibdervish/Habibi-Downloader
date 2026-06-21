@@ -25,11 +25,10 @@ class NowPlaying(ft.Container):
             animate_offset=ft.Animation(220, ft.AnimationCurve.EASE_OUT),
             offset=ft.Offset(0, 1),  # parked off-screen but stays mounted (audio keeps playing)
         )
-        # The single libmpv video surface — registered as the global engine.
-        self._video = fv.Video(expand=True, show_controls=False, muted=False,
-                               volume=100) if fv else None
-        if self._video is not None:
-            player.set_video(self._video)
+        # Note: flet-video's Video control only plays when actually visible, so
+        # a persistent off-screen surface can't drive background playback.
+        # Library audio uses just_playback; Discovery video plays in its dialog.
+        self._video = None
         self._build()
         player.add_listener(self.refresh)
 
