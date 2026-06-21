@@ -18,8 +18,8 @@ _HEADERS = {"User-Agent": _UA, "Accept-Language": "en-US,en;q=0.9"}
 _WIKI_HEADERS = {"User-Agent": "HabibiDownloaderX/1.0", "Accept-Language": "en-US,en;q=0.9"}
 
 PROVIDER_LABELS = [
-    {"key": "bing",       "label": "Bing"},
     {"key": "openverse",  "label": "Openverse"},
+    {"key": "bing",       "label": "Bing"},
     {"key": "unsplash",   "label": "Unsplash"},
     {"key": "pexels",     "label": "Pexels"},
     {"key": "pixabay",    "label": "Pixabay"},
@@ -84,33 +84,42 @@ def _search_bing(query: str) -> List[ImageAsset]:
 
 # ------------------------------------------------------------------ Openverse
 def _search_openverse(query: str) -> List[ImageAsset]:
-    """Openverse — keyless aggregator of openly-licensed images (Flickr, Wikimedia…)."""
-    try:
-        r = requests.get(
-            "https://api.openverse.org/v1/images/",
-            params={"q": query, "page_size": 20, "mature": "false"},
-            headers=_HEADERS, timeout=12,
-        )
-        if r.status_code != 200:
-            return []
-        results = []
-        for it in r.json().get("results", []):
-            thumb = it.get("thumbnail") or it.get("url") or ""
-            full = it.get("url") or thumb
-            if not thumb:
-                continue
-            results.append(ImageAsset(
-                id=_uid(), title=it.get("title", ""),
-                source="Openverse",
-                thumbnail_url=thumb, full_url=full,
-                page_url=it.get("foreign_landing_url", ""),
-                author=it.get("creator", ""),
-                width=it.get("width", 0) or 0,
-                height=it.get("height", 0) or 0,
-            ))
-        return results
-    except Exception:
-        return []
+    """Openverse — keyless API aggregator of openly-licensed HD images
+    (Flickr, Wikimedia, museums…). Deterministic: same query -> same results,
+    so images are re-findable and downloadable. Fetches several pages."""
+    results = []
+    seen = set()
+    for page in (1, 2, 3):
+        try:
+            r = requests.get(
+                "https://api.openverse.org/v1/images/",
+                params={"q": query, "page_size": 20, "page": page,
+                        "mature": "false"},
+                headers=_HEADERS, timeout=12,
+            )
+            if r.status_code != 200:
+                break
+            items = r.json().get("results", [])
+            if not items:
+                break
+            for it in items:
+                thumb = it.get("thumbnail") or it.get("url") or ""
+                full = it.get("url") or thumb
+                if not thumb or full in seen:
+                    continue
+                seen.add(full)
+                results.append(ImageAsset(
+                    id=_uid(), title=it.get("title", ""),
+                    source="Openverse",
+                    thumbnail_url=thumb, full_url=full,
+                    page_url=it.get("foreign_landing_url", ""),
+                    author=it.get("creator", ""),
+                    width=it.get("width", 0) or 0,
+                    height=it.get("height", 0) or 0,
+                ))
+        except Exception:
+            break
+    return results
 
 
 # ------------------------------------------------------------------ NASA
