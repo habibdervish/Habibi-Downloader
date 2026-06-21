@@ -1,0 +1,24 @@
+# Core UI
+flet==0.85.3
+
+# Browser cookie decryption (Windows DPAPI + AES-GCM)
+pywin32>=306
+pycryptodome>=3.20.0
+
+# Audio playback (miniaudio-based; no Flet Audio control / no external player)
+just_playback>=0.1.8
+
+# Downloading
+yt-dlp>=2024.0.0
+requests>=2.31.0
+
+# Media metadata / images
+tinytag>=1.10.0
+Pillow>=10.0.0
+
+# Scanner — safe deletes to Recycle Bin
+Send2Trash>=1.8.0
+
+# Lyrics generation (Whisper). Optional — only needed for "Generate lyrics".
+# Requires FFmpeg on PATH (also used by yt-dlp for MP3 conversion).
+faster-whisper>=1.0.0

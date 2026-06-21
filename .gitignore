@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Databases & user data
+*.db
+*.sqlite
+*.sqlite3
+database/*.db
+
+# Downloaded / scanned media (never commit user content)
+downloads/
+Downloads/
+thumbnails/
+cache/
+*.mp3
+*.mp4
+*.flac
+*.wav
+*.m4a
+*.mkv
+*.webm
+
+# AI model weights (large; re-downloaded on demand)
+models/
+*.pt
+*.onnx
+*.bin
+
+# Secrets / keys
+.env
+*.key
+secrets.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs
+*.log
