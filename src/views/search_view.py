@@ -1231,6 +1231,8 @@ class SearchView(ft.Container):
 
         fav_icon = (ft.Icons.FAVORITE if img.id in self._favorites
                     else ft.Icons.FAVORITE_BORDER)
+        dl_status = ft.Text("", size=12, color=AppTheme.ACCENT,
+                            text_align=ft.TextAlign.CENTER)
 
         dlg = ft.AlertDialog(
             modal=True,
@@ -1240,7 +1242,7 @@ class SearchView(ft.Container):
                     [
                         ft.Image(
                             src=img.full_url, fit=ft.BoxFit.CONTAIN,
-                            width=700, height=460,
+                            width=700, height=440,
                             error_content=ft.Container(
                                 content=ft.Icon(ft.Icons.BROKEN_IMAGE, size=64,
                                                 color=AppTheme.TEXT_SECONDARY),
@@ -1257,8 +1259,9 @@ class SearchView(ft.Container):
                             size=11, color=AppTheme.TEXT_SECONDARY,
                             text_align=ft.TextAlign.CENTER,
                         ),
+                        dl_status,
                     ],
-                    spacing=10,
+                    spacing=8,
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                     tight=True,
                 ),
@@ -1269,7 +1272,7 @@ class SearchView(ft.Container):
                 ft.ElevatedButton(
                     "Download", icon=ft.Icons.DOWNLOAD,
                     bgcolor=AppTheme.ACCENT, color=AppTheme.ON_ACCENT,
-                    on_click=lambda _, i=img: (self._download_image(i), close(None))),
+                    on_click=lambda _, i=img, s=dl_status: self._download_image(i, s)),
                 ft.ElevatedButton(
                     "Copy URL", icon=ft.Icons.COPY,
                     bgcolor=AppTheme.CARD, color=AppTheme.TEXT,
@@ -1706,19 +1709,42 @@ class SearchView(ft.Container):
         download_manager.enqueue(task)
         self._toast(f"Downloading: {v.title}")
 
-    def _download_image(self, img):
+    def _download_image(self, img, status_text=None):
         from src.models.download import DownloadTask
         url = img.full_url or img.thumbnail_url
         if not url:
-            self._toast("No URL available")
+            if status_text is not None:
+                self._set_status(status_text, "No URL available", AppTheme.DANGER)
+            else:
+                self._toast("No URL available")
             return
         task = DownloadTask(
             id=generate_id(), url=url,
             title=img.title or "image",
             image_id=img.id, kind="image", skip_library=True,
         )
+        if status_text is not None:
+            self._set_status(status_text, "Downloading…", AppTheme.TEXT_SECONDARY)
         download_manager.enqueue(task)
-        self._toast("Image queued for download")
+        if status_text is not None:
+            threading.Thread(target=self._watch_image_dl, args=(task, status_text),
+                             daemon=True).start()
+        else:
+            self._toast("Image queued — saving to Downloads\\Habibi\\Images")
+
+    def _watch_image_dl(self, task, status_text):
+        import time, os
+        for _ in range(240):
+            if task.status in ("complete", "failed", "cancelled"):
+                break
+            time.sleep(0.5)
+        if task.status == "complete":
+            folder = os.path.dirname(task.file_path or "") or "Downloads\\Habibi\\Images"
+            self._set_status(status_text, f"✓ Saved to {folder}", AppTheme.ACCENT)
+        elif task.status == "failed":
+            self._set_status(status_text, f"✗ Failed: {task.error[:60]}", AppTheme.DANGER)
+        else:
+            self._set_status(status_text, "Cancelled", AppTheme.TEXT_SECONDARY)
 
     def _download_direct(self, url: str, title: str, kind: str, status_text=None):
         if kind == "image":
