@@ -15,6 +15,25 @@ def get_db_path() -> str:
 
 
 def get_downloads_dir() -> str:
+    """Where downloaded media is saved. Honors the folder chosen in Settings;
+    otherwise defaults to the user's real Downloads/Habibi folder (discoverable)."""
+    # 1) user-configured folder from Settings
+    try:
+        from src.state import state
+        custom = (state.settings.get("download_folder") or "").strip()
+        if custom:
+            os.makedirs(custom, exist_ok=True)
+            return custom
+    except Exception:
+        pass
+    # 2) sensible visible default: ~/Downloads/Habibi
+    try:
+        dl = os.path.join(os.path.expanduser("~"), "Downloads", "Habibi")
+        os.makedirs(dl, exist_ok=True)
+        return dl
+    except Exception:
+        pass
+    # 3) last-resort fallback
     path = os.path.join(get_app_data_dir(), "downloads")
     os.makedirs(path, exist_ok=True)
     return path

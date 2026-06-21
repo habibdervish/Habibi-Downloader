@@ -1464,11 +1464,22 @@ class SearchView(ft.Container):
                              on_change=lambda ev, idx=i: self._pl_toggle_one(idx, ev.control.value))
             self._pl_checks[i] = cb
             self._pl_status[i] = status
+            thumb = e.get("thumbnail") or ""
+            thumb_w = ft.Container(
+                width=48, height=32, border_radius=5, bgcolor=AppTheme.PANEL,
+                clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
+                content=ft.Image(src=thumb, width=48, height=32, fit=ft.BoxFit.COVER,
+                                 error_content=ft.Icon(ft.Icons.MUSIC_NOTE, size=15,
+                                                       color=AppTheme.TEXT_SECONDARY))
+                ) if thumb else ft.Container(
+                    width=48, height=32, border_radius=5, bgcolor=AppTheme.PANEL,
+                    alignment=ft.Alignment(0, 0),
+                    content=ft.Icon(ft.Icons.MUSIC_NOTE, size=15, color=AppTheme.TEXT_SECONDARY))
             rows.append(ft.Container(
                 content=ft.Row([
                     cb,
                     ft.Text(f"{i+1}", size=11, color=AppTheme.TEXT_SECONDARY, width=26),
-                    ft.Icon(ft.Icons.MUSIC_NOTE, size=15, color=AppTheme.TEXT_SECONDARY),
+                    thumb_w,
                     ft.Text(e["title"], size=12, color=AppTheme.TEXT, expand=True,
                             max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
                     ft.Text(_fmt_dur(e.get("duration", 0)), size=10,

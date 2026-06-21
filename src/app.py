@@ -45,7 +45,7 @@ class HabibiDownloaderApp:
         self.page.window.on_event = self._on_window_event
         try:
             # Windows taskbar/title-bar icon — multi-size .ico renders crisp
-            self.page.window.icon = "icons/habibi_app.ico"
+            self.page.window.icon = "icons/habibi_icon.ico"
         except Exception:
             pass
 
