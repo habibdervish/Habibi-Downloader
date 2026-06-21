@@ -86,6 +86,10 @@ class SettingsDrawer(ft.Container):
                         self._cache_block(),
                         self._divider(),
 
+                        self._label("Images (Discovery)"),
+                        self._images_block(),
+                        self._divider(),
+
                         self._label("Movies (Discovery)"),
                         self._movies_block(),
                         self._divider(),
@@ -253,6 +257,33 @@ class SettingsDrawer(ft.Container):
             self._tmdb_field,
             ft.Container(height=4),
             self._ai_field,
+        ], spacing=6)
+
+    def _img_key_field(self, setting_key, hint):
+        return ft.TextField(
+            value=state.settings.get(setting_key, ""),
+            hint_text=hint, hint_style=ft.TextStyle(color=AppTheme.TEXT_SECONDARY, size=11),
+            password=True, can_reveal_password=True,
+            color=AppTheme.TEXT, bgcolor=AppTheme.CARD, border_color=AppTheme.BORDER,
+            focused_border_color=AppTheme.ACCENT, text_size=11, expand=True,
+            on_change=lambda e, k=setting_key: self._save(k, (e.control.value or "").strip()))
+
+    def _images_block(self):
+        link = lambda label, url: ft.Container(
+            content=ft.Text(label, size=12, color=AppTheme.ACCENT),
+            on_click=lambda _, u=url: self._open_url(u), padding=ft.Padding(0, 2, 0, 2))
+        return ft.Column([
+            ft.Text("Optional free keys for HD images in Discovery → Images. "
+                    "Without keys, Bing/Openverse/Wikimedia still work.",
+                    size=11, color=AppTheme.TEXT_SECONDARY),
+            link("Get free Unsplash key ▸", "https://unsplash.com/oauth/applications"),
+            self._img_key_field("unsplash_api_key", "Unsplash Access Key…"),
+            ft.Container(height=4),
+            link("Get free Pexels key ▸", "https://www.pexels.com/api/"),
+            self._img_key_field("pexels_api_key", "Pexels API Key…"),
+            ft.Container(height=4),
+            link("Get free Pixabay key ▸", "https://pixabay.com/api/docs/"),
+            self._img_key_field("pixabay_api_key", "Pixabay API Key…"),
         ], spacing=6)
 
     def _open_url(self, url):

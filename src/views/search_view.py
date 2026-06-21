@@ -1055,7 +1055,7 @@ class SearchView(ft.Container):
             content=ft.Stack(
                 [
                     ft.Image(
-                        src=img.thumbnail_url, fit=ft.BoxFit.COVER,
+                        src=img.thumbnail_url or img.full_url or " ", fit=ft.BoxFit.COVER,
                         width=260, height=200,
                         error_content=ft.Container(
                             content=ft.Icon(ft.Icons.BROKEN_IMAGE, size=32,

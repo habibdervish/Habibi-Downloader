@@ -20,15 +20,28 @@ _WIKI_HEADERS = {"User-Agent": "HabibiDownloaderX/1.0", "Accept-Language": "en-U
 PROVIDER_LABELS = [
     {"key": "bing",       "label": "Bing"},
     {"key": "openverse",  "label": "Openverse"},
+    {"key": "unsplash",   "label": "Unsplash"},
+    {"key": "pexels",     "label": "Pexels"},
+    {"key": "pixabay",    "label": "Pixabay"},
     {"key": "wikimedia",  "label": "Wikimedia"},
     {"key": "nasa",       "label": "NASA"},
     {"key": "met",        "label": "Met Museum"},
     {"key": "loc",        "label": "Lib. of Congress"},
+    {"key": "google",     "label": "Google"},
 ]
 
 
 def _uid() -> str:
     return str(uuid.uuid4())
+
+
+def _setting(key: str) -> str:
+    """Read an optional API key from app settings (empty string if unset)."""
+    try:
+        from src.state import state
+        return (state.settings.get(key) or "").strip()
+    except Exception:
+        return ""
 
 
 # ------------------------------------------------------------------ Bing
@@ -55,7 +68,9 @@ def _search_bing(query: str) -> List[ImageAsset]:
                 results.append(ImageAsset(
                     id=_uid(), title=m.get("t", ""),
                     source="Bing",
-                    thumbnail_url=m.get("turl", full),
+                    # `turl` can be an empty string (not missing) -> use `or`
+                    # so we never hand Flet an empty src (the red error boxes)
+                    thumbnail_url=(m.get("turl") or full),
                     full_url=full,
                     page_url=m.get("purl", ""),
                     width=0, height=0,
@@ -222,8 +237,67 @@ def _search_google(query: str) -> List[ImageAsset]:
         return []
 
 
+# ------------------------------------------------------------------ Unsplash
+def _search_unsplash(query: str) -> List[ImageAsset]:
+    """Unsplash official API (HD). Needs a free Access Key in Settings."""
+    key = _setting("unsplash_api_key")
+    if not key:
+        return []
+    try:
+        r = requests.get(
+            "https://api.unsplash.com/search/photos",
+            params={"query": query, "per_page": 30, "content_filter": "high"},
+            headers={"Authorization": f"Client-ID {key}", **_HEADERS}, timeout=12,
+        )
+        if r.status_code != 200:
+            return []
+        results = []
+        for p in r.json().get("results", []):
+            urls = p.get("urls", {})
+            thumb = urls.get("small") or urls.get("thumb") or ""
+            full = urls.get("full") or urls.get("regular") or thumb
+            if not thumb:
+                continue
+            results.append(ImageAsset(
+                id=str(p.get("id", _uid())), title=p.get("alt_description") or "",
+                source="Unsplash", thumbnail_url=thumb, full_url=full,
+                page_url=(p.get("links", {}) or {}).get("html", ""),
+                author=(p.get("user", {}) or {}).get("name", ""),
+                width=p.get("width", 0) or 0, height=p.get("height", 0) or 0,
+            ))
+        return results
+    except Exception:
+        return []
+
+
 # ------------------------------------------------------------------ Pexels
 def _search_pexels(query: str) -> List[ImageAsset]:
+    # Official API first (HD, reliable) when a free key is configured
+    key = _setting("pexels_api_key")
+    if key:
+        try:
+            r = requests.get(
+                "https://api.pexels.com/v1/search",
+                params={"query": query, "per_page": 30},
+                headers={"Authorization": key, **_HEADERS}, timeout=12,
+            )
+            if r.status_code == 200:
+                out = []
+                for photo in r.json().get("photos", []):
+                    src = photo.get("src", {})
+                    full = src.get("original") or src.get("large2x") or src.get("large") or ""
+                    thumb = src.get("medium") or src.get("small") or full
+                    if not thumb:
+                        continue
+                    out.append(ImageAsset(
+                        id=str(photo.get("id", _uid())), title=photo.get("alt", ""),
+                        source="Pexels", thumbnail_url=thumb, full_url=full,
+                        page_url=photo.get("url", ""), author=photo.get("photographer", ""),
+                        width=photo.get("width", 0), height=photo.get("height", 0)))
+                if out:
+                    return out
+        except Exception:
+            pass
     try:
         from bs4 import BeautifulSoup
         resp = requests.get(
@@ -279,6 +353,32 @@ def _search_pexels(query: str) -> List[ImageAsset]:
 
 # ------------------------------------------------------------------ Pixabay
 def _search_pixabay(query: str) -> List[ImageAsset]:
+    # Official API first (HD, reliable) when a free key is configured
+    key = _setting("pixabay_api_key")
+    if key:
+        try:
+            r = requests.get(
+                "https://pixabay.com/api/",
+                params={"key": key, "q": query, "image_type": "photo",
+                        "per_page": 30, "safesearch": "true"},
+                headers=_HEADERS, timeout=12,
+            )
+            if r.status_code == 200:
+                out = []
+                for hit in r.json().get("hits", []):
+                    thumb = hit.get("webformatURL") or hit.get("previewURL") or ""
+                    full = hit.get("largeImageURL") or thumb
+                    if not thumb:
+                        continue
+                    out.append(ImageAsset(
+                        id=str(hit.get("id", _uid())), title=hit.get("tags", ""),
+                        source="Pixabay", thumbnail_url=thumb, full_url=full,
+                        page_url=hit.get("pageURL", ""), author=hit.get("user", ""),
+                        width=hit.get("imageWidth", 0), height=hit.get("imageHeight", 0)))
+                if out:
+                    return out
+        except Exception:
+            pass
     try:
         from bs4 import BeautifulSoup
         resp = requests.get(
@@ -440,17 +540,17 @@ def _search_loc(query: str) -> List[ImageAsset]:
 
 
 # ------------------------------------------------------------------
-# Only providers that reliably return loadable thumbnails are active.
-# Removed: Art Institute (IIIF 403 hotlink block), Pexels/Pixabay/Google
-# (scrapers now return 0). _search_artic/_pexels/_pixabay/_google kept in the
-# file for reference but no longer registered.
 PROVIDERS: Dict[str, Callable] = {
     "bing":      _search_bing,
     "openverse": _search_openverse,
+    "unsplash":  _search_unsplash,   # HD — needs free key in Settings
+    "pexels":    _search_pexels,     # HD via API key, else best-effort scrape
+    "pixabay":   _search_pixabay,    # HD via API key, else best-effort scrape
     "wikimedia": _search_wikimedia,
     "nasa":      _search_nasa,
     "met":       _search_met,
     "loc":       _search_loc,
+    "google":    _search_google,
 }
 
 
