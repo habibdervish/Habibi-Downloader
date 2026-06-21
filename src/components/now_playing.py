@@ -9,26 +9,42 @@ import flet as ft
 from src.theme import AppTheme
 from src.services.player import player
 
+try:
+    import flet_video as fv
+except Exception:
+    fv = None
+
 
 class NowPlaying(ft.Container):
     def __init__(self, page: ft.Page):
         self._page = page
         self._open = False
         super().__init__(
-            expand=True, bgcolor="#0B0B0F", visible=False,
+            expand=True, bgcolor="#0B0B0F", visible=True,
             padding=ft.Padding(40, 28, 40, 28),
-            animate_opacity=ft.Animation(180, ft.AnimationCurve.EASE_OUT),
-            opacity=0,
+            animate_offset=ft.Animation(220, ft.AnimationCurve.EASE_OUT),
+            offset=ft.Offset(0, 1),  # parked off-screen but stays mounted (audio keeps playing)
         )
+        # The single libmpv video surface — registered as the global engine.
+        self._video = fv.Video(expand=True, show_controls=False, muted=False,
+                               volume=100) if fv else None
+        if self._video is not None:
+            player.set_video(self._video)
         self._build()
         player.add_listener(self.refresh)
 
     # ------------------------------------------------------------------ build
     def _build(self):
-        self._cover = ft.Container(
-            width=320, height=320, border_radius=18, bgcolor=AppTheme.CARD,
-            alignment=ft.Alignment(0, 0),
+        # Artwork shown over the video surface for audio (no picture otherwise)
+        self._art = ft.Container(
+            expand=True, bgcolor=AppTheme.CARD, alignment=ft.Alignment(0, 0),
             content=ft.Icon(ft.Icons.MUSIC_NOTE, size=90, color=AppTheme.TEXT_SECONDARY),
+        )
+        cover_inner = ft.Stack([self._video, self._art]) if self._video else self._art
+        self._cover = ft.Container(
+            width=480, height=300, border_radius=14,
+            clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
+            content=cover_inner, bgcolor="#000000",
             shadow=ft.BoxShadow(blur_radius=40, color=ft.Colors.BLACK87),
         )
         self._title = ft.Text("Nothing playing", size=24, weight=ft.FontWeight.BOLD,
@@ -117,11 +133,16 @@ class NowPlaying(ft.Container):
             return
         self._title.value = song.title
         self._artist.value = song.artist
-        if song.thumbnail_path:
-            self._cover.content = ft.Image(src=song.thumbnail_path, fit=ft.BoxFit.COVER,
-                                           width=320, height=320, border_radius=18)
-        else:
-            self._cover.content = ft.Icon(ft.Icons.MUSIC_NOTE, size=90, color=AppTheme.TEXT_SECONDARY)
+        # Video playing -> show the frame; audio -> overlay artwork on top
+        has_video = getattr(player, "has_video", False)
+        self._art.visible = not has_video
+        if not has_video:
+            if song.thumbnail_path:
+                self._art.content = ft.Image(src=song.thumbnail_path, fit=ft.BoxFit.COVER,
+                                             expand=True)
+            else:
+                self._art.content = ft.Icon(ft.Icons.MUSIC_NOTE, size=90,
+                                            color=AppTheme.TEXT_SECONDARY)
 
         self._play.icon = (ft.Icons.PAUSE_CIRCLE_FILLED if player.is_playing
                            else ft.Icons.PLAY_CIRCLE_FILLED)
@@ -168,15 +189,15 @@ class NowPlaying(ft.Container):
     def show(self):
         self._open = True
         self.visible = True
-        self.opacity = 1
+        self.offset = ft.Offset(0, 0)   # slide in
         self._safe()
         if self._page:
             self._page.run_task(self.refresh)
 
     def hide(self):
+        # Park off-screen but keep mounted so background audio keeps playing
         self._open = False
-        self.opacity = 0
-        self.visible = False
+        self.offset = ft.Offset(0, 1)
         self._safe()
 
     def toggle(self):

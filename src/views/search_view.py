@@ -1590,9 +1590,16 @@ class SearchView(ft.Container):
 
     # ===================================================== IN-APP PLAYER
     def _play_media(self, url: str, title: str, audio_only: bool = False, thumb: str = ""):
-        """Stream a video/audio URL inside the app via flet-video (libmpv).
-        Resolves the direct stream with yt-dlp first, then plays in a dialog.
-        Falls back to opening externally if the video engine isn't available."""
+        """Play a Discovery stream through the UNIFIED global player, so it shows
+        in the bottom player bar + Now Playing (same as Library)."""
+        if not url:
+            return
+        from src.services.player import player
+        if _HAS_VIDEO and player.video is not None:
+            player.play_url(url, title, audio_only=audio_only, thumb=thumb)
+            self._toast(f"Playing: {title[:40]} — open Now Playing for video")
+            return
+        # No engine available — fall back to the old dialog/browser path
         if not _HAS_VIDEO:
             self._toast("Opening in browser (in-app player unavailable)")
             self._open(url)
