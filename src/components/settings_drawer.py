@@ -36,8 +36,10 @@ class SettingsDrawer(ft.Container):
 
     # ------------------------------------------------------------------ build
     def _build(self):
+        from src.utils.file_utils import get_downloads_dir
+        custom = (state.settings.get("download_folder") or "").strip()
         self._folder_display = ft.Text(
-            state.settings.get("download_folder") or "Not set",
+            custom or get_downloads_dir(),  # show the real effective folder
             size=12, color=AppTheme.TEXT_SECONDARY, max_lines=2,
             overflow=ft.TextOverflow.ELLIPSIS, expand=True,
         )
@@ -270,12 +272,28 @@ class SettingsDrawer(ft.Container):
             pass
 
     def _browse_folder(self, e):
+        # Run the OS folder picker off the UI thread (tkinter blocks otherwise)
+        import threading
+        threading.Thread(target=self._pick_folder_bg, daemon=True).start()
+
+    def _pick_folder_bg(self):
         from src.services.scanner import pick_folder
         folder = pick_folder()
-        if folder:
+        if not folder:
+            return
+        self._save("download_folder", folder)
+
+        def _apply():
             self._folder_display.value = folder
-            self._save("download_folder", folder)
             self._safe(self._folder_display)
+        try:
+            if self.page:
+                self.page.run_task(self._async_apply, _apply)
+        except Exception:
+            pass
+
+    async def _async_apply(self, fn):
+        fn()
 
     def _reset(self, e):
         for key, value in DEFAULTS.items():
