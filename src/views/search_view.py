@@ -20,6 +20,13 @@ import src.services.web_search    as _web_svc
 import src.services.url_resolver  as _url_svc
 import src.services.movie_search  as _movie_svc
 
+try:
+    import flet_video as _fv
+    _HAS_VIDEO = True
+except Exception:
+    _fv = None
+    _HAS_VIDEO = False
+
 # Reload provider labels from services (they may have changed)
 _image_svc_labels = _image_svc.PROVIDER_LABELS
 
@@ -947,6 +954,12 @@ class SearchView(ft.Container):
         )
         action_row = ft.Row(
             [
+                ft.IconButton(
+                    ft.Icons.PLAY_CIRCLE_FILL, icon_size=22, icon_color=AppTheme.ACCENT,
+                    tooltip="Play here", width=34,
+                    on_click=lambda _, s=song: self._play_media(
+                        s.source_url or s.audio_url or "", s.title, audio_only=True),
+                ),
                 ft.ElevatedButton(
                     "Download", icon=ft.Icons.DOWNLOAD_ROUNDED,
                     bgcolor=AppTheme.ACCENT, color=ft.Colors.WHITE,
@@ -966,7 +979,7 @@ class SearchView(ft.Container):
                     on_click=lambda _, s=song: self._copy(s.source_url),
                 ),
             ],
-            spacing=4,
+            spacing=2,
         )
         return ft.Container(
             content=ft.Column(
@@ -1087,6 +1100,11 @@ class SearchView(ft.Container):
         views_text = _fmt_views(v.views)
         action_row = ft.Row(
             [
+                ft.IconButton(
+                    ft.Icons.PLAY_CIRCLE_FILL, icon_size=26, icon_color=AppTheme.ACCENT,
+                    tooltip="Play here",
+                    on_click=lambda _, item=v: self._play_media(item.source_url, item.title),
+                ),
                 ft.ElevatedButton(
                     "Download", icon=ft.Icons.DOWNLOAD_ROUNDED,
                     bgcolor=AppTheme.ACCENT, color=ft.Colors.WHITE,
@@ -1106,7 +1124,7 @@ class SearchView(ft.Container):
                     on_click=lambda _, item=v: self._copy(item.source_url),
                 ),
             ],
-            spacing=4,
+            spacing=2,
         )
         return ft.Container(
             content=ft.Column(
@@ -1485,6 +1503,9 @@ class SearchView(ft.Container):
                     ft.Text(_fmt_dur(e.get("duration", 0)), size=10,
                             color=AppTheme.TEXT_SECONDARY) if e.get("duration") else ft.Container(),
                     status,
+                    ft.IconButton(ft.Icons.PLAY_CIRCLE_OUTLINE, icon_size=18,
+                                  icon_color=AppTheme.ACCENT, tooltip="Play",
+                                  on_click=lambda _, it=e: self._play_media(it["url"], it.get("title", ""))),
                     ft.IconButton(ft.Icons.DOWNLOAD, icon_size=16, icon_color=AppTheme.ACCENT,
                                   tooltip="Download this",
                                   on_click=lambda _, idx=i: self._download_entries([idx])),
@@ -1570,6 +1591,83 @@ class SearchView(ft.Container):
             self._set_status(status, "✗ Failed", AppTheme.DANGER)
         elif task.status == "cancelled":
             self._set_status(status, "Cancelled", AppTheme.TEXT_SECONDARY)
+
+    # ===================================================== IN-APP PLAYER
+    def _play_media(self, url: str, title: str, audio_only: bool = False):
+        """Stream a video/audio URL inside the app via flet-video (libmpv).
+        Resolves the direct stream with yt-dlp first, then plays in a dialog.
+        Falls back to opening externally if the video engine isn't available."""
+        if not _HAS_VIDEO:
+            self._toast("Opening in browser (in-app player unavailable)")
+            self._open(url)
+            return
+
+        body = ft.Column(
+            [ft.ProgressRing(width=30, height=30, color=AppTheme.ACCENT),
+             ft.Text("Loading stream…", size=12, color=AppTheme.TEXT_SECONDARY)],
+            spacing=12, horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            alignment=ft.MainAxisAlignment.CENTER)
+        holder = ft.Container(content=body, width=760, height=440,
+                              alignment=ft.Alignment(0, 0), bgcolor="#000000",
+                              border_radius=10)
+        dlg = ft.AlertDialog(
+            modal=True, bgcolor=AppTheme.PANEL,
+            title=ft.Text(title[:70], color=AppTheme.TEXT, size=14),
+            content=holder,
+            actions=[
+                ft.TextButton("Open in browser", on_click=lambda _: self._open(url)),
+                ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog()),
+            ])
+        self.page.show_dialog(dlg)
+        threading.Thread(target=self._resolve_and_play,
+                         args=(url, audio_only, holder), daemon=True).start()
+
+    def _resolve_and_play(self, url, audio_only, holder):
+        stream = None
+        try:
+            from yt_dlp import YoutubeDL
+            fmt = ("bestaudio/best" if audio_only
+                   else "best[ext=mp4][acodec!=none][vcodec!=none]/best[acodec!=none][vcodec!=none]/best")
+            with YoutubeDL({"quiet": True, "no_warnings": True, "noplaylist": True,
+                            "format": fmt}) as ydl:
+                info = ydl.extract_info(url, download=False)
+            stream = info.get("url")
+            if not stream and info.get("requested_formats"):
+                stream = info["requested_formats"][0].get("url")
+        except Exception:
+            stream = None
+
+        def _apply():
+            if not stream:
+                holder.content = ft.Column(
+                    [ft.Icon(ft.Icons.ERROR_OUTLINE, size=40, color=AppTheme.TEXT_SECONDARY),
+                     ft.Text("Couldn't load this stream — try Open in browser",
+                             size=12, color=AppTheme.TEXT_SECONDARY)],
+                    spacing=10, horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    alignment=ft.MainAxisAlignment.CENTER)
+            else:
+                try:
+                    holder.content = _fv.Video(
+                        expand=True, autoplay=True, show_controls=True,
+                        playlist=[_fv.VideoMedia(resource=stream)],
+                        muted=False, volume=100)
+                except Exception:
+                    holder.content = ft.Column(
+                        [ft.Icon(ft.Icons.MOVIE_OUTLINED, size=40, color=AppTheme.TEXT_SECONDARY),
+                         ft.Text("In-app video engine unavailable — Open in browser",
+                                 size=12, color=AppTheme.TEXT_SECONDARY)],
+                        spacing=10, horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                        alignment=ft.MainAxisAlignment.CENTER)
+            try:
+                holder.update()
+            except Exception:
+                pass
+
+        try:
+            if self.page:
+                self.page.run_task(self._async_apply, _apply)
+        except Exception:
+            pass
 
     # ======================================================= ACTIONS
     def _download_music(self, song):

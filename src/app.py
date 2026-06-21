@@ -63,11 +63,8 @@ class HabibiDownloaderApp:
         os._exit(0)
 
     def _on_keyboard(self, e: ft.KeyboardEvent):
-        if e.ctrl and (e.key or "").upper() == "K":
-            try:
-                self._global_search.focus()
-            except Exception:
-                pass
+        # Reserved for future shortcuts (global search was removed)
+        return
 
     def _on_global_search(self, e):
         # Debounce 300ms: only filter after the user pauses typing, and refresh
@@ -140,6 +137,15 @@ class HabibiDownloaderApp:
 
     async def _refresh_downloads(self):
         await self._queue_panel.refresh()
+        # keep the top-bar badge in sync with active downloads
+        try:
+            active = len([t for t in state.download_queue
+                          if t.status in ("downloading", "queued", "paused")])
+            self._dl_badge.content.value = str(active)
+            self._dl_badge.visible = active > 0
+            self._dl_badge.update()
+        except Exception:
+            pass
 
     def _toggle_settings(self):
         self._settings_drawer.toggle()
@@ -172,16 +178,29 @@ class HabibiDownloaderApp:
     # ----------------------------------------------------------------- top bar
     def _build_top_bar(self):
         self._global_search = None
+        # Download queue badge + button (the queue panel was previously unreachable)
+        self._dl_badge = ft.Container(
+            content=ft.Text("0", size=9, color=AppTheme.ON_ACCENT, weight=ft.FontWeight.BOLD),
+            bgcolor=AppTheme.ACCENT, border_radius=8,
+            padding=ft.Padding(5, 1, 5, 1), right=2, top=2, visible=False,
+        )
+        downloads_btn = ft.Container(
+            content=ft.Stack([
+                ft.IconButton(ft.Icons.DOWNLOAD_ROUNDED, icon_size=20,
+                              icon_color=AppTheme.TEXT, tooltip="Downloads",
+                              on_click=lambda _: self._queue_panel.toggle()),
+                self._dl_badge,
+            ], width=44, height=44),
+        )
         return ft.Container(
             content=ft.Row(
                 [
-                    ft.Container(width=140),
                     ft.Container(expand=True),
-                    ft.Container(width=140),
+                    downloads_btn,
                 ],
-                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                alignment=ft.MainAxisAlignment.END,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                spacing=0,
+                spacing=4,
             ),
             height=60,
             padding=ft.Padding(20, 0, 20, 0),

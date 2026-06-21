@@ -27,24 +27,49 @@ def build_sidebar(page: ft.Page, on_settings=None) -> ft.Container:
     def _navigate(view: str):
         state.set_view(view)
 
+    nav_rows = {}   # view -> (container, icon, text)
+
+    def _restyle():
+        current = getattr(state, "current_view", None) or "library"
+        for v, (cont, icon, txt) in nav_rows.items():
+            active = v == current
+            cont.bgcolor = (AppTheme.ACCENT + "1A") if active else "transparent"
+            icon.color = AppTheme.ACCENT if active else AppTheme.TEXT_SECONDARY
+            txt.color = AppTheme.ACCENT if active else AppTheme.TEXT_SECONDARY
+            txt.weight = ft.FontWeight.W_600 if active else ft.FontWeight.NORMAL
+            try:
+                cont.update()
+            except (RuntimeError, AssertionError):
+                pass
+
     nav_controls = []
     for item in NAV_ITEMS:
         view_name = item["view"]
+        icon = ft.Icon(item["icon"], size=20, color=AppTheme.TEXT_SECONDARY)
+        txt = ft.Text(item["label"], size=13, color=AppTheme.TEXT_SECONDARY)
         row = ft.Container(
-            content=ft.Row(
-                [
-                    ft.Icon(item["icon"], size=20, color=AppTheme.TEXT_SECONDARY),
-                    ft.Text(item["label"], size=13, color=AppTheme.TEXT_SECONDARY),
-                ],
-                spacing=12,
-            ),
+            content=ft.Row([icon, txt], spacing=12),
             padding=ft.Padding(12, 14, 12, 14),
             border_radius=10,
             ink=False,
             animate=AppTheme.transition,
             on_click=lambda _, v=view_name: _navigate(v),
         )
-        nav_controls.append(_hoverable(row))
+        nav_rows[view_name] = (row, icon, txt)
+        # Hover only changes bg when not active
+        def _mk_hover(c, v):
+            def on_hover(e):
+                if (getattr(state, "current_view", None) or "library") == v:
+                    return
+                c.bgcolor = AppTheme.HOVER if e.data == "true" else "transparent"
+                c.update()
+            return on_hover
+        row.on_hover = _mk_hover(row, view_name)
+        nav_controls.append(row)
+
+    # Keep the active highlight in sync with navigation
+    state.subscribe(_restyle)
+    _restyle()
 
     settings_row = ft.Container(
         content=ft.Row(
