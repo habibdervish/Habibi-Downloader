@@ -1240,7 +1240,7 @@ class SearchView(ft.Container):
                     [
                         ft.Image(
                             src=img.full_url, fit=ft.BoxFit.CONTAIN,
-                            width=700, height=480,
+                            width=700, height=460,
                             error_content=ft.Container(
                                 content=ft.Icon(ft.Icons.BROKEN_IMAGE, size=64,
                                                 color=AppTheme.TEXT_SECONDARY),
@@ -1257,43 +1257,33 @@ class SearchView(ft.Container):
                             size=11, color=AppTheme.TEXT_SECONDARY,
                             text_align=ft.TextAlign.CENTER,
                         ),
-                        ft.Row(
-                            [
-                                ft.FilledButton(
-                                    "Download", icon=ft.Icons.DOWNLOAD,
-                                    style=ft.ButtonStyle(
-                                        bgcolor=AppTheme.ACCENT, color=AppTheme.ON_ACCENT),
-                                    on_click=lambda _, i=img: (
-                                        self._download_image(i), close(None)),
-                                ),
-                                ft.OutlinedButton(
-                                    "Copy URL", icon=ft.Icons.COPY,
-                                    on_click=lambda _, i=img: self._copy(i.full_url),
-                                ),
-                                ft.OutlinedButton(
-                                    "Open Source", icon=ft.Icons.OPEN_IN_NEW,
-                                    on_click=lambda _, i=img: self._open(
-                                        i.page_url or i.full_url),
-                                ),
-                                ft.IconButton(
-                                    fav_icon, icon_color=ft.Colors.RED_400,
-                                    tooltip="Favorite",
-                                    on_click=lambda _, i=img: self._fav_image(i),
-                                ),
-                                ft.OutlinedButton(
-                                    "Close", on_click=close,
-                                ),
-                            ],
-                            spacing=8,
-                            alignment=ft.MainAxisAlignment.CENTER,
-                            wrap=True,
-                        ),
                     ],
                     spacing=10,
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    tight=True,
                 ),
-                padding=ft.Padding(16, 16, 16, 16),
+                padding=ft.Padding(16, 16, 16, 8), width=720,
             ),
+            # Buttons live in `actions` — the reliably-clickable location in this Flet build
+            actions=[
+                ft.ElevatedButton(
+                    "Download", icon=ft.Icons.DOWNLOAD,
+                    bgcolor=AppTheme.ACCENT, color=AppTheme.ON_ACCENT,
+                    on_click=lambda _, i=img: (self._download_image(i), close(None))),
+                ft.ElevatedButton(
+                    "Copy URL", icon=ft.Icons.COPY,
+                    bgcolor=AppTheme.CARD, color=AppTheme.TEXT,
+                    on_click=lambda _, i=img: self._copy(i.full_url)),
+                ft.ElevatedButton(
+                    "Open Source", icon=ft.Icons.OPEN_IN_NEW,
+                    bgcolor=AppTheme.CARD, color=AppTheme.TEXT,
+                    on_click=lambda _, i=img: self._open(i.page_url or i.full_url)),
+                ft.IconButton(fav_icon, icon_color=ft.Colors.RED_400, tooltip="Favorite",
+                              on_click=lambda _, i=img: self._fav_image(i)),
+                ft.ElevatedButton("Close", bgcolor=AppTheme.CARD, color=AppTheme.TEXT,
+                                  on_click=close),
+            ],
+            actions_alignment=ft.MainAxisAlignment.CENTER,
         )
         self.page.show_dialog(dlg)
 
