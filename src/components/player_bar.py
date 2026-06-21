@@ -7,7 +7,7 @@ from src.services.player import player
 class PlayerBar(ft.Container):
     """Bottom mini-player: cover, transport, seek, volume, repeat, shuffle."""
 
-    def __init__(self, page: ft.Page):
+    def __init__(self, page: ft.Page, on_expand=None):
         super().__init__(
             height=90,
             bgcolor=AppTheme.PANEL,
@@ -15,6 +15,7 @@ class PlayerBar(ft.Container):
             padding=ft.Padding(16, 6, 16, 6),
             visible=False,
         )
+        self._on_expand = on_expand
         player.attach(page, on_change=self.refresh)
         from src.components.lyrics_panel import LyricsPanel
         self._lyrics = LyricsPanel(page)
@@ -26,6 +27,8 @@ class PlayerBar(ft.Container):
             width=48, height=48, border_radius=8, bgcolor=AppTheme.CARD,
             alignment=ft.Alignment(0, 0),
             content=ft.Icon(ft.Icons.MUSIC_NOTE, size=22, color=AppTheme.TEXT_SECONDARY),
+            tooltip="Now Playing", ink=True,
+            on_click=lambda _: (self._on_expand() if self._on_expand else None),
         )
         self._title = ft.Text("Nothing playing", size=13, weight=ft.FontWeight.W_600,
                               color=AppTheme.TEXT, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS)
@@ -72,12 +75,15 @@ class PlayerBar(ft.Container):
         )
         right = ft.Row(
             [
+                ft.IconButton(ft.Icons.OPEN_IN_FULL, icon_size=16, icon_color=AppTheme.TEXT_SECONDARY,
+                              tooltip="Now Playing",
+                              on_click=lambda _: (self._on_expand() if self._on_expand else None)),
                 ft.IconButton(ft.Icons.LYRICS_OUTLINED, icon_size=18, icon_color=AppTheme.TEXT_SECONDARY,
                               tooltip="Lyrics", on_click=lambda _: self._lyrics.open_for_current()),
                 ft.Icon(ft.Icons.VOLUME_UP, size=16, color=AppTheme.TEXT_SECONDARY),
                 self._volume,
             ],
-            spacing=6, width=170, alignment=ft.MainAxisAlignment.END,
+            spacing=4, width=200, alignment=ft.MainAxisAlignment.END,
         )
 
         self.content = ft.Row([left, center, right],

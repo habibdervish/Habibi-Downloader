@@ -111,11 +111,14 @@ class HabibiDownloaderApp:
         )
         self._settings_drawer = SettingsDrawer()
         self._queue_panel = QueuePanel()
-        self._player_bar = PlayerBar(self.page)
+        from src.components.now_playing import NowPlaying
+        self._now_playing = NowPlaying(self.page)
+        self._player_bar = PlayerBar(self.page, on_expand=self._now_playing.show)
         content_area = ft.Column([top_bar, self._switcher, self._player_bar], spacing=0, expand=True)
         self._layout = ft.Stack(
             [
                 ft.Row([sidebar, content_area], spacing=0, expand=True),
+                self._now_playing,
                 self._queue_panel,
                 self._settings_drawer,
             ],
