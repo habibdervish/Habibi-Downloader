@@ -288,7 +288,7 @@ class SettingsDrawer(ft.Container):
         storage.clear_cache()
         self._refresh_cache_size()
         try:
-            self.page.open(ft.SnackBar(ft.Text("Cache cleared"), bgcolor=AppTheme.CARD))
+            self.page.show_dialog(ft.SnackBar(ft.Text("Cache cleared"), bgcolor=AppTheme.CARD))
         except Exception:
             pass
 

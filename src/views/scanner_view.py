@@ -813,7 +813,7 @@ class ScannerView(ft.Container):
     # ════════════════════════════════════════════════════════════ dialogs
     def _choose_dupe_method(self):
         def pick(m):
-            self.page.close(dlg)
+            self.page.pop_dialog()
             self._run_dupes(m)
         dlg = ft.AlertDialog(
             modal=True, bgcolor=AppTheme.PANEL,
@@ -829,24 +829,24 @@ class ScannerView(ft.Container):
                     self._btn("Date", ft.Icons.CALENDAR_MONTH, lambda _: pick("date")),
                 ], spacing=8),
             ], tight=True, spacing=12, width=360),
-            actions=[ft.TextButton("Cancel", on_click=lambda _: self.page.close(dlg))],
+            actions=[ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog())],
         )
-        self.page.open(dlg)
+        self.page.show_dialog(dlg)
 
     def _confirm(self, msg, on_yes):
         def yes(_):
-            self.page.close(dlg)
+            self.page.pop_dialog()
             on_yes()
         dlg = ft.AlertDialog(
             modal=True, bgcolor=AppTheme.PANEL,
             title=ft.Text("Confirm", color=AppTheme.TEXT),
             content=ft.Text(msg, size=13, color=AppTheme.TEXT_SECONDARY),
             actions=[
-                ft.TextButton("Cancel", on_click=lambda _: self.page.close(dlg)),
+                ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog()),
                 ft.ElevatedButton("Yes", bgcolor=AppTheme.DANGER, color=ft.Colors.WHITE, on_click=yes),
             ],
         )
-        self.page.open(dlg)
+        self.page.show_dialog(dlg)
 
     def _prompt(self, title, default, on_submit):
         field = ft.TextField(value=default, autofocus=True, bgcolor=AppTheme.CARD,
@@ -854,18 +854,18 @@ class ScannerView(ft.Container):
                              color=AppTheme.TEXT)
 
         def submit(_):
-            self.page.close(dlg)
+            self.page.pop_dialog()
             on_submit(field.value)
         dlg = ft.AlertDialog(
             modal=True, bgcolor=AppTheme.PANEL,
             title=ft.Text(title, color=AppTheme.TEXT, size=15),
             content=ft.Container(content=field, width=420),
             actions=[
-                ft.TextButton("Cancel", on_click=lambda _: self.page.close(dlg)),
+                ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog()),
                 ft.ElevatedButton("OK", bgcolor=AppTheme.ACCENT, color=AppTheme.ON_ACCENT, on_click=submit),
             ],
         )
-        self.page.open(dlg)
+        self.page.show_dialog(dlg)
 
     async def _prompt_async(self, title, default, on_submit):
         self._prompt(title, default, on_submit)
@@ -873,7 +873,7 @@ class ScannerView(ft.Container):
     # ════════════════════════════════════════════════════════════ ui helpers
     def _toast(self, msg):
         try:
-            self.page.open(ft.SnackBar(ft.Text(msg, color=ft.Colors.WHITE),
+            self.page.show_dialog(ft.SnackBar(ft.Text(msg, color=ft.Colors.WHITE),
                                        bgcolor=AppTheme.ACCENT, duration=2500))
         except Exception:
             pass

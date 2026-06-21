@@ -985,7 +985,7 @@ class LibraryView(ft.Container):
                             ft.Text(song.artist, size=12, color=AppTheme.TEXT_SECONDARY),
                         ], expand=True, spacing=2),
                         ft.IconButton(ft.Icons.CLOSE, icon_color=AppTheme.TEXT_SECONDARY,
-                                      on_click=lambda _: self.page.close(dlg)),
+                                      on_click=lambda _: self.page.pop_dialog()),
                     ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                      ft.Divider(height=12, color=AppTheme.BORDER),
                      ft.Column(line_controls, spacing=3, scroll=ft.ScrollMode.AUTO, expand=True)],
@@ -995,7 +995,7 @@ class LibraryView(ft.Container):
             ),
             actions=[], actions_alignment=ft.MainAxisAlignment.END,
         )
-        self.page.open(dlg)
+        self.page.show_dialog(dlg)
 
     def _open_properties(self, song):
         has_lyrics  = bool(song.lyrics_text)
@@ -1033,12 +1033,12 @@ class LibraryView(ft.Container):
                 ),
             ),
             actions=[
-                ft.TextButton("Close", on_click=lambda _: self.page.close(dlg),
+                ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog(),
                               style=ft.ButtonStyle(color=AppTheme.TEXT_SECONDARY)),
             ],
             actions_alignment=ft.MainAxisAlignment.END,
         )
-        self.page.open(dlg)
+        self.page.show_dialog(dlg)
 
     def _reveal(self, song):
         import subprocess
@@ -1396,7 +1396,7 @@ class LibraryView(ft.Container):
             except Exception:
                 pass
             try:
-                self.page.close(dlg)
+                self.page.pop_dialog()
             except Exception:
                 pass
             self._populate()
@@ -1412,14 +1412,14 @@ class LibraryView(ft.Container):
                 content=ft.Column([title_field, artist_field], spacing=14, tight=True),
             ),
             actions=[
-                ft.TextButton("Cancel", on_click=lambda _: self.page.close(dlg),
+                ft.TextButton("Cancel", on_click=lambda _: self.page.pop_dialog(),
                               style=ft.ButtonStyle(color=AppTheme.TEXT_SECONDARY)),
                 ft.TextButton("Save", on_click=_save,
                               style=ft.ButtonStyle(color=AppTheme.ACCENT)),
             ],
             actions_alignment=ft.MainAxisAlignment.END,
         )
-        self.page.open(dlg)
+        self.page.show_dialog(dlg)
 
     # ─────────────────────────────────── refresh helpers
     def _refresh_after_change(self):
@@ -1464,7 +1464,7 @@ class LibraryView(ft.Container):
 
     def _toast(self, msg: str):
         try:
-            self.page.open(ft.SnackBar(ft.Text(msg), bgcolor=AppTheme.CARD))
+            self.page.show_dialog(ft.SnackBar(ft.Text(msg), bgcolor=AppTheme.CARD))
         except Exception:
             pass
 

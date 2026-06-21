@@ -39,11 +39,11 @@ class LyricsPanel:
         self._edit = False
         player.add_listener(self._on_tick)
         self._render()
-        self.page.open(self._dialog)
+        self.page.show_dialog(self._dialog)
 
     def close(self):
         player.remove_listener(self._on_tick)
-        self.page.close(self._dialog)
+        self.page.pop_dialog()
 
     # ------------------------------------------------------------------ render
     def _render(self):
@@ -240,7 +240,7 @@ class LyricsPanel:
     # -------------------------------------------------------------- ui helpers
     def _toast(self, msg):
         try:
-            self.page.open(ft.SnackBar(ft.Text(msg), bgcolor=AppTheme.CARD))
+            self.page.show_dialog(ft.SnackBar(ft.Text(msg), bgcolor=AppTheme.CARD))
         except Exception:
             pass
 

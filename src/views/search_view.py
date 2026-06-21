@@ -230,7 +230,7 @@ class SearchView(ft.Container):
         )
         self._music_grid = ft.GridView(
             runs_count=0, max_extent=220, spacing=12, run_spacing=12,
-            expand=True, padding=ft.Padding(0, 4, 0, 4),
+            child_aspect_ratio=0.86, expand=True, padding=ft.Padding(0, 4, 0, 4),
         )
         self._music_status = self._make_status(
             ft.Icons.MUSIC_NOTE_OUTLINED, "Search for music across all providers"
@@ -294,7 +294,7 @@ class SearchView(ft.Container):
         )
         self._video_grid = ft.GridView(
             runs_count=0, max_extent=260, spacing=12, run_spacing=12,
-            expand=True, padding=ft.Padding(0, 4, 0, 4),
+            child_aspect_ratio=0.80, expand=True, padding=ft.Padding(0, 4, 0, 4),
         )
         self._video_status = self._make_status(
             ft.Icons.VIDEOCAM_OUTLINED, "Search for videos across all providers"
@@ -433,9 +433,9 @@ class SearchView(ft.Container):
                 [meta_line, overview], tight=True, spacing=12, scroll=ft.ScrollMode.AUTO)),
             actions=[
                 ft.TextButton("Open on IMDb", on_click=lambda _: self._open(mv["tmdb_url"])),
-                ft.TextButton("Close", on_click=lambda _: self.page.close(dlg)),
+                ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog()),
             ])
-        self.page.open(dlg)
+        self.page.show_dialog(dlg)
         # Fetch full plot/rating/genres on demand (keyless Cinemeta list is sparse)
         imdb = mv.get("imdb_id")
         if imdb:
@@ -613,9 +613,9 @@ class SearchView(ft.Container):
                             size=12, color=AppTheme.TEXT_SECONDARY),
                     search, count_lbl, results,
                 ], spacing=10, expand=True)),
-            actions=[ft.TextButton("Close", on_click=lambda _: self.page.close(dlg))],
+            actions=[ft.TextButton("Close", on_click=lambda _: self.page.pop_dialog())],
         )
-        self.page.open(dlg)
+        self.page.show_dialog(dlg)
         render(all_sites)
 
     # --------------------------------------------------- provider chips
@@ -1206,8 +1206,7 @@ class SearchView(ft.Container):
     def _show_image_preview(self, img):
         def close(_):
             try:
-                dlg.open = False
-                self.page.update()
+                self.page.pop_dialog()
             except Exception:
                 pass
 
@@ -1277,7 +1276,7 @@ class SearchView(ft.Container):
                 padding=ft.Padding(16, 16, 16, 16),
             ),
         )
-        self.page.open(dlg)
+        self.page.show_dialog(dlg)
 
     # ============================================= DIRECT URL
     def _resolve_url(self, url: str):
@@ -1633,7 +1632,7 @@ class SearchView(ft.Container):
 
     def _toast(self, msg: str):
         try:
-            self.page.open(ft.SnackBar(
+            self.page.show_dialog(ft.SnackBar(
                 content=ft.Text(msg, color=ft.Colors.WHITE),
                 bgcolor=AppTheme.ACCENT,
                 duration=3000,
