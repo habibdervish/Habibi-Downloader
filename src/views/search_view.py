@@ -1428,6 +1428,15 @@ class SearchView(ft.Container):
         title = info.get("title") or "Playlist"
         count = info.get("count", len(entries))
 
+        self._pl_entries = entries
+        self._pl_selected = set()          # indices selected via checkbox
+        self._pl_status: dict = {}         # task_id -> status Text control
+        self._pl_checks: dict = {}         # index -> Checkbox
+
+        self._pl_sel_btn = ft.ElevatedButton(
+            "Download selected (0)", icon=ft.Icons.DOWNLOAD_OUTLINED,
+            bgcolor=AppTheme.CARD, color=AppTheme.TEXT, disabled=True,
+            on_click=lambda _: self._download_selected_entries())
         header = ft.Row([
             ft.Icon(ft.Icons.PLAYLIST_PLAY, size=22, color=AppTheme.ACCENT),
             ft.Column([
@@ -1435,25 +1444,39 @@ class SearchView(ft.Container):
                         max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
                 ft.Text(f"{count} items", size=12, color=AppTheme.TEXT_SECONDARY),
             ], spacing=0, expand=True),
+            self._pl_sel_btn,
             ft.ElevatedButton(
                 f"Download all ({count})", icon=ft.Icons.DOWNLOAD_ROUNDED,
                 bgcolor=AppTheme.ACCENT, color=AppTheme.ON_ACCENT,
-                on_click=lambda _, es=entries: self._download_playlist(es)),
+                on_click=lambda _: self._download_entries(list(range(len(entries))))),
         ], spacing=12, vertical_alignment=ft.CrossAxisAlignment.CENTER)
 
+        select_all = ft.Checkbox(
+            label="Select all", value=False, active_color=AppTheme.ACCENT,
+            label_style=ft.TextStyle(color=AppTheme.TEXT_SECONDARY, size=12),
+            on_change=lambda e: self._pl_toggle_all(e.control.value))
+
         rows = []
-        for i, e in enumerate(entries, 1):
+        for i, e in enumerate(entries):
+            status = ft.Text("", size=10, color=AppTheme.ACCENT, width=92,
+                             text_align=ft.TextAlign.RIGHT)
+            cb = ft.Checkbox(value=False, active_color=AppTheme.ACCENT,
+                             on_change=lambda ev, idx=i: self._pl_toggle_one(idx, ev.control.value))
+            self._pl_checks[i] = cb
+            self._pl_status[i] = status
             rows.append(ft.Container(
                 content=ft.Row([
-                    ft.Text(f"{i}", size=11, color=AppTheme.TEXT_SECONDARY, width=28),
+                    cb,
+                    ft.Text(f"{i+1}", size=11, color=AppTheme.TEXT_SECONDARY, width=26),
                     ft.Icon(ft.Icons.MUSIC_NOTE, size=15, color=AppTheme.TEXT_SECONDARY),
                     ft.Text(e["title"], size=12, color=AppTheme.TEXT, expand=True,
                             max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
                     ft.Text(_fmt_dur(e.get("duration", 0)), size=10,
                             color=AppTheme.TEXT_SECONDARY) if e.get("duration") else ft.Container(),
+                    status,
                     ft.IconButton(ft.Icons.DOWNLOAD, icon_size=16, icon_color=AppTheme.ACCENT,
                                   tooltip="Download this",
-                                  on_click=lambda _, it=e: self._download_one_entry(it)),
+                                  on_click=lambda _, idx=i: self._download_entries([idx])),
                 ], spacing=8, vertical_alignment=ft.CrossAxisAlignment.CENTER),
                 padding=ft.Padding(8, 4, 8, 4),
                 border=ft.Border(bottom=ft.BorderSide(0.5, AppTheme.BORDER))))
@@ -1461,7 +1484,8 @@ class SearchView(ft.Container):
         self._direct_result.content = ft.Container(
             content=ft.Column([
                 header,
-                ft.Divider(height=10, color=AppTheme.BORDER),
+                ft.Row([select_all], alignment=ft.MainAxisAlignment.START),
+                ft.Divider(height=6, color=AppTheme.BORDER),
                 ft.Column(rows, spacing=0, scroll=ft.ScrollMode.AUTO, expand=True),
             ], spacing=8, expand=True),
             bgcolor=AppTheme.CARD, border_radius=AppTheme.card_radius,
@@ -1469,18 +1493,72 @@ class SearchView(ft.Container):
         self._direct_result.visible = True
         self._safe_update(self._direct_result)
 
-    def _download_one_entry(self, e):
-        task = DownloadTask(id=generate_id(), url=e["url"], title=e.get("title", "audio"),
-                            kind="youtube", skip_library=True)
-        download_manager.enqueue(task)
-        self._toast(f"Downloading: {e.get('title', '')[:40]}")
+    def _pl_toggle_one(self, idx, checked):
+        if checked:
+            self._pl_selected.add(idx)
+        else:
+            self._pl_selected.discard(idx)
+        n = len(self._pl_selected)
+        self._pl_sel_btn.text = f"Download selected ({n})"
+        self._pl_sel_btn.disabled = n == 0
+        self._pl_sel_btn.bgcolor = AppTheme.ACCENT if n else AppTheme.CARD
+        self._pl_sel_btn.color = AppTheme.ON_ACCENT if n else AppTheme.TEXT
+        self._safe_update(self._pl_sel_btn)
 
-    def _download_playlist(self, entries):
-        for e in entries:
-            download_manager.enqueue(DownloadTask(
-                id=generate_id(), url=e["url"], title=e.get("title", "audio"),
-                kind="youtube", skip_library=True))
-        self._toast(f"Queued {len(entries)} items — saved to Downloads folder")
+    def _pl_toggle_all(self, checked):
+        for idx, cb in self._pl_checks.items():
+            cb.value = checked
+            self._safe_update(cb)
+            if checked:
+                self._pl_selected.add(idx)
+            else:
+                self._pl_selected.discard(idx)
+        self._pl_toggle_one(-1, False)  # refresh button label
+        self._pl_selected.discard(-1)
+
+    def _download_selected_entries(self):
+        if self._pl_selected:
+            self._download_entries(sorted(self._pl_selected))
+
+    def _download_entries(self, indices):
+        for idx in indices:
+            e = self._pl_entries[idx]
+            task = DownloadTask(id=generate_id(), url=e["url"],
+                                title=e.get("title", "audio"),
+                                kind="youtube", skip_library=True)
+            status = self._pl_status.get(idx)
+            if status:
+                status.value = "Queued…"
+                status.color = AppTheme.TEXT_SECONDARY
+                self._safe_update(status)
+            download_manager.enqueue(task)
+            threading.Thread(target=self._watch_pl_task, args=(task, status),
+                             daemon=True).start()
+        self._toast(f"Downloading {len(indices)} item(s) → Downloads folder")
+
+    def _watch_pl_task(self, task, status):
+        import time
+        if status is None:
+            return
+        last = None
+        for _ in range(2400):
+            st = task.status
+            if st == "downloading":
+                txt = f"{int(task.progress*100)}%"
+            elif st in ("complete", "failed", "cancelled"):
+                break
+            else:
+                txt = "Queued…"
+            if txt != last:
+                last = txt
+                self._set_status(status, txt, AppTheme.TEXT_SECONDARY)
+            time.sleep(0.5)
+        if task.status == "complete":
+            self._set_status(status, "✓ Done", AppTheme.ACCENT)
+        elif task.status == "failed":
+            self._set_status(status, "✗ Failed", AppTheme.DANGER)
+        elif task.status == "cancelled":
+            self._set_status(status, "Cancelled", AppTheme.TEXT_SECONDARY)
 
     # ======================================================= ACTIONS
     def _download_music(self, song):
